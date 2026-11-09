@@ -197,11 +197,11 @@ internal fun SiteDownloadScreen(
         Modifier.fillMaxWidth().chromeFade(overHero = true).statusBarsPadding().height(64.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) { AppSymbol(AppIcon.Back, description = "Back") }
+        IconButton(onClick = onBack) { AppSymbol(AppIcon.Back, Modifier.offset(x = (-8).dp), description = "Back") }
         Text("Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onToggleSave) {
-            AppSymbol(if (saved) AppIcon.BookmarkFilled else AppIcon.Bookmark,
+            AppSymbol(if (saved) AppIcon.BookmarkFilled else AppIcon.Bookmark, Modifier.offset(x = 8.dp),
                 description = if (saved) "Unsave show" else "Save show")
         }
     }
@@ -228,7 +228,8 @@ private fun RemoteDetailHero(series: SiteDownloadSeries, images: ImageLoader) {
         Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
             Thumbnail(poster, series.title, images,
-                Modifier.width(98.dp).aspectRatio(if (bannerArtwork) 16f / 9f else 2f / 3f).clip(RoundedCornerShape(12.dp))
+                Modifier.width(if (bannerArtwork) 120.dp else 108.dp)
+                    .aspectRatio(if (bannerArtwork) 16f / 9f else 2f / 3f).clip(RoundedCornerShape(12.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)))
             Column(Modifier.weight(1f).padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 60.dp), contentAlignment = Alignment.BottomStart) {
