@@ -40,7 +40,8 @@ internal fun CatalogScreen(
     val grid = rememberLazyGridState()
     val phoneCardWidth = ((LocalConfiguration.current.screenWidthDp - 62) / 3.35f).coerceIn(108f, 150f).dp
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(model.source) { mutableStateOf(emptyList<String>()) }
-    val columns = if (LocalConfiguration.current.screenWidthDp >= 600) 4 else 2
+    // Keep the short-drama catalog at the original dense poster size on phones.
+    val columns = if (LocalConfiguration.current.screenWidthDp >= 600) 4 else 3
     val searchSourceName = if (model.source == CatalogSource.KISSKH) "KissKH" else model.source.label
     LaunchedEffect(grid, model.items.size, model.loading, browseMode) {
         snapshotFlow { browseMode && model.items.isNotEmpty() && !model.loading && model.nextUrl != null &&
