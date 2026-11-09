@@ -189,7 +189,7 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
             }
         }
         siteDownload.pending?.let { pending -> item(key = "site-preparation", contentType = "preparation-status") {
-            PreparationStatusRow(siteDownload.preparationStatus, pending.episodes.size, siteDownload::pausePreparation,
+            PreparationStatusRow(siteDownload.preparationStatus, pending.batches().sumOf { it.episodes.size }, siteDownload::pausePreparation,
                 siteDownload::resumePreparation, siteDownload::discardPreparation, onChooseFolder = onChooseFolder)
         } }
         model.downloadNotice?.let { notice -> item(contentType = "download-notice") {

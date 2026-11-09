@@ -85,8 +85,13 @@ internal object PreparationJobs {
         lock(SITES).withLock {
             val current = payload(SITES)?.let { gson.fromJson(it, SiteDownloadPreparation::class.java) }
             val merged = current?.let { appendSitePreparation(it, record) } ?: record
+            val currentRemaining = current?.batches()?.sumOf { it.episodes.size } ?: 0
+            val mergedRemaining = merged.batches().sumOf { it.episodes.size }
+            val added = mergedRemaining - currentRemaining
+            if (current != null && added == 0) return@withLock
             DownloadStore.operation(SITES, "preparation", gson.toJson(merged))
-            DownloadStore.operation(SITES, "preparation-total", merged.batches().sumOf { it.episodes.size }.toString())
+            val previousTotal = DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: currentRemaining
+            DownloadStore.operation(SITES, "preparation-total", (previousTotal + added).toString())
             DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
             if (current == null) {
                 DownloadStore.operation(SITES, "preparation-paused", null)
@@ -142,8 +147,9 @@ internal object PreparationJobs {
             if (batches.sumOf { it.episodes.size } == before) return@withLock
             val paused = SITES in DownloadStore.operations("preparation-paused")
             DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
-            val total = batches.sumOf { it.episodes.size }
-            DownloadStore.operation(SITES, "preparation-total", total.toString())
+            val remaining = batches.sumOf { it.episodes.size }
+            val total = DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: before
+            DownloadStore.operation(SITES, "preparation-total", (total - before + remaining).coerceAtLeast(0).toString())
             DownloadStore.operation(SITES, "preparation", record.withBatches(batches)?.let(gson::toJson))
             DownloadStore.flush()
             withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(SITES)).result.get() }
@@ -155,10 +161,6 @@ internal object PreparationJobs {
         lock(slot).withLock {
             if (generation(slot) != token) return@withLock false
             DownloadStore.operation(slot, "preparation", record?.let(gson::toJson))
-            if (slot == SITES) {
-                val queued = record as? SiteDownloadPreparation
-                DownloadStore.operation(slot, "preparation-total", queued?.batches()?.sumOf { it.episodes.size }?.toString())
-            }
             DownloadStore.flush()
             true
         }
