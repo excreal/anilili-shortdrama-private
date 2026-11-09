@@ -33,7 +33,7 @@ internal fun RemoteDramaPlayer(series: SiteDownloadSeries, quality: String, onCl
     val savedRevision by SavedShowsStore.changes.collectAsState()
     val isSaved = remember(savedRevision, series) { savedShows.contains(series) }
     val cookies = remember(app) { SiteDownloadCookieStore(app) }
-    val repository = remember(cookies) { SiteDownloadRepository(cookieHeader = cookies::headerFor) }
+    val repository = remember(cookies) { appSiteDownloadRepository(cookieHeader = cookies::headerFor) }
     // A failed local copy is bypassed only for this playback session.
     val onlineOnly = remember(series.provider, series.id) { mutableSetOf<Int>() }
     val localPlaying = remember(series.provider, series.id) { mutableSetOf<Int>() }

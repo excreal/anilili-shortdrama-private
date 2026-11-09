@@ -293,7 +293,7 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
     private suspend fun prepareSites(record: SiteDownloadPreparation): Result {
         val remaining = record.batches().toMutableList()
         val cookies = SiteDownloadCookieStore(applicationContext)
-        val repository = SiteDownloadRepository(cookieHeader = cookies::headerFor)
+        val repository = appSiteDownloadRepository(cookieHeader = cookies::headerFor)
         val start = android.os.SystemClock.elapsedRealtime()
         var done = 0
         val total = remaining.sumOf { it.episodes.size }

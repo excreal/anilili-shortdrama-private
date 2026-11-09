@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Animepahe DL"
+rootProject.name = "Anilili Short Drama"
 include(":app")

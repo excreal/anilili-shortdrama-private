@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 internal class SiteDownloadViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
     private val cookies = SiteDownloadCookieStore(application)
-    private val repository = SiteDownloadRepository(cookieHeader = cookies::headerFor)
+    private val repository = appSiteDownloadRepository(cookieHeader = cookies::headerFor)
     private val metadataApis by lazy { SiteMetadataApis.forApp(application) }
     private val gson = Gson()
     private var inspectJob: Job? = null

@@ -16,7 +16,8 @@ internal class SiteDownloadRepository(
     private val client: OkHttpClient = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build(),
     private val userAgent: String = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
-    private val cookieHeader: ((String) -> String)? = null
+    private val cookieHeader: ((String) -> String)? = null,
+    private val allowedProviders: Set<SiteDownloadProvider> = SiteDownloadProvider.entries.toSet()
 ) {
     private val providerSession = CatalogSessionCookies()
     private val kisskh = KisskhApi(client, cookieHeader)
@@ -24,7 +25,7 @@ internal class SiteDownloadRepository(
 
     suspend fun inspect(input: String, cookie: String = ""): SiteDownloadSeries = withContext(Dispatchers.IO) {
         val url = siteDownloadInput(input)
-        val provider = siteDownloadProvider(url)
+        val provider = requireAllowedProvider(url)
         when (provider) {
             SiteDownloadProvider.KISSKH -> kisskh.series(url.newBuilder().host("kisskh.do").build())
             SiteDownloadProvider.DIRECT -> {
@@ -62,7 +63,7 @@ internal class SiteDownloadRepository(
 
     suspend fun resolve(locator: String, quality: String = "Best", cookie: String = ""): ResolvedMedia = withContext(Dispatchers.IO) {
         val input = siteDownloadInput(locator)
-        val provider = siteDownloadProvider(input)
+        val provider = requireAllowedProvider(input)
         val variants = episodeVariants(input, provider, cookie)
         val chosen = if (provider == SiteDownloadProvider.NARTO) chooseNartoVariant(variants, quality)
             else chooseDramaVariant(variants, quality)
@@ -76,7 +77,7 @@ internal class SiteDownloadRepository(
 
     suspend fun resolveChoices(locator: String, cookie: String = "", includeSubtitles: Boolean = true): List<ResolvedMedia> = withContext(Dispatchers.IO) {
         val input = siteDownloadInput(locator)
-        val provider = siteDownloadProvider(input)
+        val provider = requireAllowedProvider(input)
         episodeVariants(input, provider, cookie, includeSubtitles).distinctBy { it.url }.map { variant ->
             val headers = linkedMapOf("User-Agent" to userAgent)
             if (provider != SiteDownloadProvider.DIRECT) headers["Referer"] = input.toString()
@@ -89,6 +90,12 @@ internal class SiteDownloadRepository(
 
     private fun variantQualities(variants: List<DramaVariant>): List<String> = listOf("Best") + variants.map { it.quality }.distinct()
         .sortedByDescending { it.removeSuffix("p").toIntOrNull() ?: 0 }
+
+    private fun requireAllowedProvider(url: HttpUrl): SiteDownloadProvider {
+        val provider = siteDownloadProvider(url)
+        if (provider !in allowedProviders) throw IOException("${provider.contentLabel} sources aren't included in this edition.")
+        return provider
+    }
 
     private suspend fun episodeVariants(url: HttpUrl, provider: SiteDownloadProvider, cookie: String,
         includeSubtitles: Boolean = true): List<DramaVariant> = when (provider) {
@@ -208,3 +215,7 @@ internal class SiteDownloadRepository(
         }
     }
 }
+
+/** All production entry points use this factory so pasted links and background jobs share the edition boundary. */
+internal fun appSiteDownloadRepository(cookieHeader: ((String) -> String)? = null): SiteDownloadRepository =
+    SiteDownloadRepository(cookieHeader = cookieHeader, allowedProviders = ShortDramaCatalogConfig.supportedProviders)

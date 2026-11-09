@@ -96,17 +96,11 @@ object OfflineDownloads {
             // Database loading must finish before choosing this download's HTTP context.
             kotlinx.coroutines.runBlocking { DownloadStore.awaitReady() }
             if (!hasOutputFolderAccess(app) || DownloadStore.operations("folder-access")["transfers"] != null) throw OutputFolderAccessRequired()
-            val record = Exports.all(app)[request.id]
-            require(record?.identity?.isSiteDownload == true) { "AnimePahe downloading has been removed." }
-            val media = record?.media
-            val upstream = if (record?.identity?.isSiteDownload == true || request.id.startsWith("sites:")) {
-                requireNotNull(media) { "Video source context is missing. Retry to resolve this episode again." }
-                OkHttpDataSource.Factory(MediaRequests.client(media, SiteDownloadCookieStore(app)::headerFor)).setTransferListener(transferListener)
-                    .setDefaultRequestProperties(mediaRequestHeaders(media))
-            } else {
-                OkHttpDataSource.Factory(AnimeNetwork.mediaClient).setTransferListener(transferListener)
-                    .setDefaultRequestProperties(media?.let(::mediaRequestHeaders) ?: mapOf("Referer" to "https://kwik.cx/"))
-            }
+            val record = requireNotNull(Exports.all(app)[request.id]) { "This download record is missing. Retry to resolve this episode again." }
+            require(record.identity?.isSiteDownload == true) { "This download record is not supported by this edition." }
+            val media = requireNotNull(record.media) { "Video source context is missing. Retry to resolve this episode again." }
+            val upstream = OkHttpDataSource.Factory(MediaRequests.client(media, SiteDownloadCookieStore(app)::headerFor)).setTransferListener(transferListener)
+                .setDefaultRequestProperties(mediaRequestHeaders(media))
             val factory = androidx.media3.datasource.cache.CacheDataSource.Factory().setCache(cache)
                 .setUpstreamDataSourceFactory(upstream)
             androidx.media3.exoplayer.offline.DefaultDownloaderFactory(factory, executor).createDownloader(request)

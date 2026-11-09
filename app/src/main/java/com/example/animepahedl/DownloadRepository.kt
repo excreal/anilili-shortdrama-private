@@ -179,7 +179,7 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
         val enqueueLocks = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
     }
     override suspend fun enqueue(identity: DownloadIdentity, media: ResolvedMedia, previous: ExportRecord?): String {
-        require(identity.isSiteDownload) { "AnimePahe downloading has been removed. Add a supported video link instead." }
+        require(identity.isSiteDownload) { "Only supported source downloads can be queued here." }
         val lock = enqueueLocks.getOrPut(identity.key) { kotlinx.coroutines.sync.Mutex() }
         lock.lock()
         try { return enqueueLocked(identity, media, previous) } finally { lock.unlock() }
@@ -249,7 +249,7 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
                 val locator = identity.locator?.takeIf { it.isNotBlank() }
                     ?: error("This video download has no source locator. Inspect its link again.")
                 val cookies = SiteDownloadCookieStore(app)
-                cookies.applyTo(SiteDownloadRepository(cookieHeader = cookies::headerFor).resolve(locator, identity.quality, cookies.headerFor(locator)))
+                cookies.applyTo(appSiteDownloadRepository(cookieHeader = cookies::headerFor).resolve(locator, identity.quality, cookies.headerFor(locator)))
             } else network.playlist(identity.anime, identity.episode, identity.quality, identity.audio)
             val newId = enqueue(identity, media, record)
             app.getSharedPreferences("media-verification", Context.MODE_PRIVATE).edit { remove(id) }

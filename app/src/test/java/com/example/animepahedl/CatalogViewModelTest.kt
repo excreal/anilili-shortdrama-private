@@ -8,6 +8,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CatalogViewModelTest {
+    @Test fun shortDramaEditionExcludesMovieAndKDramaProviders() {
+        assertEquals(
+            setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.DIRECT),
+            ShortDramaCatalogConfig.supportedProviders,
+        )
+    }
+
     @Test fun cacheKeepsEveryCachedItemWithItsMatchingTailContinuation() {
         val items = (0 until 750).map { CatalogItem("Title $it", "https://source.test/$it", "") }
         val original = CatalogPage(items, "https://source.test/page/16")

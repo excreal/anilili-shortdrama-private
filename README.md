@@ -10,15 +10,11 @@ The short-drama app has its own Android application ID and can be installed
 alongside Anilili Movies.
 
 The Material theme, poster cards, animated water-fill loading mark, splash and
-download display are adapted from the local Anilili application. EroticMV homepage and search were verified with browser navigation headers,
-referrers and a persistent session; blocked requests show a useful error. These are internal application APIs, not a
-separately hosted public REST service.
+download display are adapted from the local Anilili application. Provider pages
+and media URLs are resolved by the app's short-drama adapters; blocked requests
+show a useful error.
 
-# Shared downloader engine
-
-A Material 3 downloader using the search, episode API, source selection, and
-Kwik/glot playlist-resolution flow from
-[animepahe-dl](https://forgejo.excreal.duckdns.org/merlin/animepahe-dl).
+# Browse, play and download
 
 ## Use
 
@@ -59,7 +55,7 @@ verification is not guaranteed and is not automated or bypassed.
 ## Downloads
 
 - **HLS:** Media3 downloads manifests, segments, and supported encryption into
-  `Android/data/com.example.animepahedl/files/hls-temp`. On ARM64 devices, the
+  `Android/data/com.anilili.shortdrama/files/hls-temp`. On ARM64 devices, the
   bundled FFmpeg executable reads this cache through a token-protected loopback
   server and stream-copies video/audio into a staging MP4. The server has four
   workers, a bounded request queue, streamed binary responses, a 1 MiB playlist
@@ -98,10 +94,8 @@ verification is not guaranteed and is not automated or bypassed.
   no-progress watchdog; validation has its own two-minute deadline. Staging and final MP4
   output coexist during export, so allow space for both. Android's
   foreground-service restrictions/time limits still apply.
-- Like the desktop implementation, packed player scripts are submitted to
-  `https://glot.io/api/mux`. This third-party service and the site's page/API
-  formats must remain compatible. Unavailable quality/audio options fail
-  explicitly instead of silently choosing another language.
+- Unavailable quality/audio options fail explicitly instead of silently
+  choosing another language.
 - No yt-dlp, Python, GTK, WebKitGTK, or ffmpeg installation is needed on Android.
 
 Only download media you have permission to save. Live-site verification and
@@ -125,11 +119,11 @@ local unit tests. It works from any directory and uses the Gradle wrapper.
 Debug APK: `app/build/outputs/apk/debug/app-debug.apk`. Minimum Android: 15 (API 35).
 Release APKs are unsigned unless all signing variables below are configured.
 
-## Video links
+## Supported sources
 
-Explore has separate **AnimePahe** and **Video links** tabs. Paste a
-Dramatip, Kiss18, Narto Drama, EroticMV, or KissKH Korean drama link,
-or a direct HTTP(S) HLS/MP4/M4V/WebM URL, then choose **Inspect**. Review the series,
+Browse includes **Dramatip**, **Kiss18** and **Narto Drama**. Paste one of those
+short-drama links or a direct HTTP(S) HLS/MP4/M4V/WebM URL on the supported link
+screen, then choose **Inspect**. Review the series,
 quality, and selected episodes before downloading. Standalone videos have a
 single **Download video** action. TikTok is excluded. Episode selection accepts
 `1-5,9`; blank means all, while **Clear selection** writes `none` and selects zero.
@@ -142,7 +136,7 @@ domain, path, secure, and expiry attributes. Cookies remain in app-private stora
 and are excluded from diagnostics. Use your own current session when a provider
 requires it. Provider availability still depends on its current responses.
 
-AnimePahe and video-link preparation have separate persistent background batches.
+Source-link preparation uses a persistent background batch.
 WorkManager continues preparation away from the screen, waits for connectivity,
 and retries temporary failures with exponential backoff. Manage Pause, Resume,
 or Discard from the compact Downloads status row. Explicit session verification
@@ -238,7 +232,7 @@ and on returning to the app.
 Database metadata is published to the app only after its ordered write commits. A failed write stays queued for retry, and critical transitions cannot pass the persistence barrier until it succeeds. The Room v1 schema is exported under `app/schemas`; future schema changes must supply and test migrations. The obsolete Transformer/direct-muxer implementation and dependencies have been removed. HLS export and its fixtures use FFmpeg.
 
 After reinstalling, use **Choose folder** in Downloads and select the original
-`Download/Animepahe` folder, or the existing show folder. Android requires this
+`Download/Animepahe` folder (the legacy default), or the existing show folder. Android requires this
 folder grant to see files from the previous installation. Matching episode,
 quality and language files are reused before download; queued duplicates are
 reconciled when the folder is chosen. Install subsequent APKs as updates to retain

@@ -18,7 +18,7 @@ android {
         applicationId = "com.anilili.shortdrama"
         minSdk = 35
         targetSdk = 37
-        versionCode = 4
+        versionCode = 5
         versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

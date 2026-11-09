@@ -62,7 +62,7 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
     val history = remember(context) { PlaybackHistory(context) }
     val registryId = remember(series.provider, series.id, localOnlySeries) { ReferencePlaybackRegistry.register(series, localOnlySeries) }
     val cookies = remember(context) { SiteDownloadCookieStore(context) }
-    val repository = remember(cookies) { SiteDownloadRepository(cookieHeader = cookies::headerFor) }
+    val repository = remember(cookies) { appSiteDownloadRepository(cookieHeader = cookies::headerFor) }
     val savedShows = remember(context) { SavedShowsStore(context) }
     val savedRevision by SavedShowsStore.changes.collectAsState()
     val isSaved = remember(savedRevision, series) { savedShows.contains(series) }
