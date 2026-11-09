@@ -90,7 +90,7 @@ class SiteDownloadSourcesTest {
         val base = "https://narto-drama.com/detail/watch/story/2".toHttpUrl()
         assertEquals("https://narto-drama.com/videos/2.mp4", parseNartoVariants(html, base, 2).single().url)
         assertEquals(2, parseNartoVariants(html, base, 1).size)
-        assertEquals("application/x-mpegURL", chooseDramaVariant(parseNartoVariants(html, base, 1), "Best").mimeType)
+        assertEquals("video/mp4", chooseDramaVariant(parseNartoVariants(html, base, 1), "Best").mimeType)
         assertTrue(runCatching { parseNartoVariants(html, base, 3) }.isFailure)
     }
     @Test fun nartoAcceptsOpaqueSignedStreamWithAdvertisedHlsMode() {

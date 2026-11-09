@@ -326,7 +326,12 @@ internal fun chooseDramaVariant(variants: List<DramaVariant>, quality: String): 
     if (quality !in setOf("Best", "Original") && target == null) throw IOException("Invalid quality selection.")
     val candidates = if (target == null) variants else variants.filter { dramaHeight(it) <= target }
     if (candidates.isEmpty()) return variants.minByOrNull { dramaHeight(it) }!!
-    return candidates.maxWithOrNull(compareBy<DramaVariant> { dramaHeight(it) }.thenBy { if (it.mimeType == "application/x-mpegURL") 1 else 0 })!!
+    // Narto can expose both a native MP4 and an HLS URL marked "Original". The
+    // HLS endpoint is not consistently accessible (some return 403), while its
+    // direct_play_url remains playable. Prefer the direct file on equal quality;
+    // providers that need HLS still return it as their only/highest-quality item.
+    return candidates.maxWithOrNull(compareBy<DramaVariant> { dramaHeight(it) }
+        .thenBy { if (it.mimeType == "application/x-mpegURL") 0 else 1 })!!
 }
 private fun dramaHeight(variant: DramaVariant): Int = variant.quality.removeSuffix("p").toIntOrNull() ?: minOf(variant.width, variant.height).coerceAtLeast(0)
 
