@@ -26,7 +26,8 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
     private var metadataJob: Job? = null
     private var qualityJob: Job? = null
     private var generation = 0
-    private var submitting = false
+    var submitting by mutableStateOf(false)
+        private set
     var input by mutableStateOf("")
         private set
     var series by mutableStateOf<SiteDownloadSeries?>(null)
@@ -189,13 +190,13 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
     fun dismissNotice() { notice = null }
     fun dismissError() { error = null }
     fun downloadEpisode(show: SiteDownloadSeries, episode: SiteDownloadEpisode, selectedQuality: String = "Best"): Boolean {
-        if (!ready || preparing || discarding || pending != null) return false
+        if (!ready || submitting || discarding) return false
         runPreparation(SiteDownloadPreparation(show, listOf(episode), selectedQuality))
         return true
     }
     fun downloadSelected() {
         val preview = series ?: return
-        if (!ready || preparing || discarding || pending != null || selectionError != null || selectedEpisodes.isEmpty()) return
+        if (!ready || submitting || discarding || selectionError != null || selectedEpisodes.isEmpty()) return
         runPreparation(SiteDownloadPreparation(preview, selectedEpisodes.toList(), quality))
     }
     fun resumePreparation() { if (!discarding) viewModelScope.launch {
@@ -219,21 +220,28 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
         }
     }
     private fun runPreparation(record: SiteDownloadPreparation) {
-        if (preparing || discarding || !ready) return
-        preparing = true
+        if (submitting || discarding || !ready) return
+        val append = pending != null
+        if (!append) preparing = true
         submitting = true
-        pending = record
-        preparationStatus = PreparationStatus(pending = true, label = "${record.episodes.size} queued · preparing links in background", totalSelected = record.episodes.size)
+        if (!append) {
+            pending = record
+        val queuedCount = record.batches().sumOf { it.episodes.size }
+        preparationStatus = PreparationStatus(pending = true, label = "$queuedCount queued · preparing links in background", totalSelected = queuedCount)
+        }
         error = null
         viewModelScope.launch {
-            try { PreparationJobs.submit(app, PreparationJobs.SITES, record) }
+            try {
+                if (append) PreparationJobs.appendSites(app, record) else PreparationJobs.submit(app, PreparationJobs.SITES, record)
+            }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 preparing = false
                 pending = PreparationJobs.payload(PreparationJobs.SITES)?.let {
                     runCatching { gson.fromJson(it, SiteDownloadPreparation::class.java) }.getOrNull()
                 }
-                error = "Could not schedule preparation. Your selection is kept."
+                error = if (append) "Could not add these downloads to the preparation queue. Your current queue is kept." else
+                    "Could not schedule preparation. Your selection is kept."
             } finally { submitting = false }
         }
     }

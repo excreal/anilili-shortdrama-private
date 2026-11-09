@@ -12,28 +12,31 @@ internal fun isPreparedQueueRow(id: String) = id.startsWith("preparing:")
 /** Every selected item is visible immediately, while real downloads replace placeholders by source identity. */
 internal fun mergePreparedQueueRows(actual: List<DownloadRow>, pending: SiteDownloadPreparation?, status: PreparationStatus): List<DownloadRow> {
     if (pending == null) return actual
-    val showId = "sites:${pending.series.provider.name}:${pending.series.id}"
-    val existing = actual.filter { it.showId == showId }.map { it.episodeId }.filter { it.isNotBlank() }.toHashSet()
-    val existingNumbers = actual.filter { it.showId == showId && it.episodeId.isBlank() }.map { it.episodeNumber }.toHashSet()
-    val queued = pending.episodes.filterNot { it.id in existing || it.number.toString() in existingNumbers }.map { episode ->
-        DownloadRow(
-            id = pendingEpisodeRowId(pending.series, episode),
-            title = pending.series.title + (if (pending.series.isSingleVideo) "" else " · Episode ${episode.displayNumber}") + " · ${pending.quality}",
-            transfer = if (status.paused) TransferState.PAUSED else TransferState.QUEUED,
-            percent = -1f,
-            thumbnail = pending.series.poster,
-            quality = pending.quality,
-            explanation = when {
-                status.needsFolderAccess -> "Queued · choose downloads folder"
-                status.paused -> "Queued · link preparation paused"
-                status.verificationUrl != null -> "Queued · session verification needed"
-                else -> "Queued · preparing link in background"
-            },
-            showId = showId,
-            episodeId = episode.id,
-            showTitle = pending.series.title,
-            episodeNumber = episode.displayNumber,
-        )
+    val queued = pending.batches().flatMap { batch ->
+        val showId = "sites:${batch.series.provider.name}:${batch.series.id}"
+        val showRows = actual.filter { it.showId == showId }
+        val existing = showRows.map { it.episodeId }.filter { it.isNotBlank() }.toHashSet()
+        val existingNumbers = showRows.filter { it.episodeId.isBlank() }.map { it.episodeNumber }.toHashSet()
+        batch.episodes.filterNot { it.id in existing || it.number.toString() in existingNumbers }.map { episode ->
+            DownloadRow(
+                id = pendingEpisodeRowId(batch.series, episode),
+                title = batch.series.title + (if (batch.series.isSingleVideo) "" else " · Episode ${episode.displayNumber}") + " · ${batch.quality}",
+                transfer = if (status.paused) TransferState.PAUSED else TransferState.QUEUED,
+                percent = -1f,
+                thumbnail = batch.series.poster,
+                quality = batch.quality,
+                explanation = when {
+                    status.needsFolderAccess -> "Queued · choose downloads folder"
+                    status.paused -> "Queued · link preparation paused"
+                    status.verificationUrl != null -> "Queued · session verification needed"
+                    else -> "Queued · preparing link in background"
+                },
+                showId = showId,
+                episodeId = episode.id,
+                showTitle = batch.series.title,
+                episodeNumber = episode.displayNumber,
+            )
+        }
     }
     return if (queued.isEmpty()) actual else actual + queued
 }

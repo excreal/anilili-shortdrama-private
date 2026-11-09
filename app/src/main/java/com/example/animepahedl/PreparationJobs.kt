@@ -70,13 +70,33 @@ internal object PreparationJobs {
         lock(slot).withLock {
             require(payload(slot) == null) { "A batch is already being prepared." }
             DownloadStore.operation(slot, "preparation", gson.toJson(record))
-            if (record is SiteDownloadPreparation) DownloadStore.operation(slot, "preparation-total", record.episodes.size.toString())
+            if (record is SiteDownloadPreparation) DownloadStore.operation(slot, "preparation-total", record.batches().sumOf { it.episodes.size }.toString())
             DownloadStore.operation(slot, "preparation-generation", UUID.randomUUID().toString())
             DownloadStore.operation(slot, "preparation-paused", null)
             DownloadStore.operation(slot, "preparation-verification", null)
             DownloadStore.operation(slot, "preparation-folder", null)
             DownloadStore.flush()
             enqueue(context, slot, ExistingWorkPolicy.REPLACE)
+        }
+    }
+    /** Add a title to the persistent queue and restart the worker with a fresh journal token. */
+    suspend fun appendSites(context: Context, record: SiteDownloadPreparation) = withContext(NonCancellable) {
+        DownloadStore.awaitReady()
+        lock(SITES).withLock {
+            val current = payload(SITES)?.let { gson.fromJson(it, SiteDownloadPreparation::class.java) }
+            val merged = current?.let { appendSitePreparation(it, record) } ?: record
+            DownloadStore.operation(SITES, "preparation", gson.toJson(merged))
+            DownloadStore.operation(SITES, "preparation-total", merged.batches().sumOf { it.episodes.size }.toString())
+            DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
+            if (current == null) {
+                DownloadStore.operation(SITES, "preparation-paused", null)
+                DownloadStore.operation(SITES, "preparation-verification", null)
+                DownloadStore.operation(SITES, "preparation-folder", null)
+            }
+            DownloadStore.flush()
+            if (SITES !in DownloadStore.operations("preparation-paused") &&
+                SITES !in DownloadStore.operations("preparation-verification") &&
+                SITES !in DownloadStore.operations("preparation-folder")) enqueue(context, SITES, ExistingWorkPolicy.REPLACE)
         }
     }
     suspend fun resume(context: Context, slot: String) = withContext(NonCancellable) {
@@ -114,16 +134,20 @@ internal object PreparationJobs {
         lock(SITES).withLock {
             val raw = payload(SITES) ?: return@withLock
             val record = gson.fromJson(raw, SiteDownloadPreparation::class.java)
-            val remaining = record.episodes.filterNot { pendingEpisodeRowId(record.series, it) in ids }
-            if (remaining.size == record.episodes.size) return@withLock
+            val before = record.batches().sumOf { it.episodes.size }
+            val batches = record.batches().mapNotNull { batch ->
+                val episodes = batch.episodes.filterNot { pendingEpisodeRowId(batch.series, it) in ids }
+                batch.copy(episodes = episodes).takeIf { episodes.isNotEmpty() }
+            }
+            if (batches.sumOf { it.episodes.size } == before) return@withLock
             val paused = SITES in DownloadStore.operations("preparation-paused")
             DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
-            val total = DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: record.episodes.size
-            DownloadStore.operation(SITES, "preparation-total", (total - record.episodes.size + remaining.size).coerceAtLeast(0).toString())
-            DownloadStore.operation(SITES, "preparation", record.copy(episodes = remaining).takeIf { remaining.isNotEmpty() }?.let(gson::toJson))
+            val total = batches.sumOf { it.episodes.size }
+            DownloadStore.operation(SITES, "preparation-total", total.toString())
+            DownloadStore.operation(SITES, "preparation", record.withBatches(batches)?.let(gson::toJson))
             DownloadStore.flush()
             withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(SITES)).result.get() }
-            if (remaining.isNotEmpty() && !paused && SITES !in DownloadStore.operations("preparation-verification") &&
+            if (batches.isNotEmpty() && !paused && SITES !in DownloadStore.operations("preparation-verification") &&
                 SITES !in DownloadStore.operations("preparation-folder")) enqueue(context, SITES, ExistingWorkPolicy.REPLACE)
         }
     }
@@ -131,6 +155,10 @@ internal object PreparationJobs {
         lock(slot).withLock {
             if (generation(slot) != token) return@withLock false
             DownloadStore.operation(slot, "preparation", record?.let(gson::toJson))
+            if (slot == SITES) {
+                val queued = record as? SiteDownloadPreparation
+                DownloadStore.operation(slot, "preparation-total", queued?.batches()?.sumOf { it.episodes.size }?.toString())
+            }
             DownloadStore.flush()
             true
         }
@@ -261,21 +289,27 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
         return false
     }
     private suspend fun prepareSites(record: SiteDownloadPreparation): Result {
-        val remaining = record.episodes.toMutableList()
+        val remaining = record.batches().toMutableList()
         val cookies = SiteDownloadCookieStore(applicationContext)
         val repository = SiteDownloadRepository(cookieHeader = cookies::headerFor)
         val start = android.os.SystemClock.elapsedRealtime()
-        for ((index, episode) in record.episodes.withIndex()) {
+        var done = 0
+        val total = remaining.sumOf { it.episodes.size }
+        while (remaining.isNotEmpty()) {
             if (android.os.SystemClock.elapsedRealtime() - start > 7 * 60_000) break
-            progress(if (record.series.isSingleVideo) "Preparing video" else "Preparing ${index + 1}/${record.episodes.size} · Episode ${episode.displayNumber}")
+            val batch = remaining.first()
+            val episode = batch.episodes.first()
+            progress(if (batch.series.isSingleVideo) "Preparing video" else "Preparing ${done + 1}/$total · ${batch.series.title} · Episode ${episode.displayNumber}")
             if (attempt {
-                if (record.quality == "Best" || !reuseExisting(DownloadIdentity.siteDownload(record.series, episode, record.quality, "und"))) {
-                    val media = cookies.applyTo(repository.resolve(episode.url, record.quality, cookies.headerFor(episode.url)))
-                    enqueue(DownloadIdentity.siteDownload(record.series, episode, media.quality, media.audio), media)
+                if (batch.quality == "Best" || !reuseExisting(DownloadIdentity.siteDownload(batch.series, episode, batch.quality, "und"))) {
+                    val media = cookies.applyTo(repository.resolve(episode.url, batch.quality, cookies.headerFor(episode.url)))
+                    enqueue(DownloadIdentity.siteDownload(batch.series, episode, media.quality, media.audio), media)
                 }
             }) {
-                remaining.remove(episode)
-                if (!PreparationJobs.save(slot, token, record.copy(episodes = remaining.toList()).takeIf { remaining.isNotEmpty() })) return Result.success()
+                val next = batch.copy(episodes = batch.episodes.drop(1))
+                if (next.episodes.isEmpty()) remaining.removeAt(0) else remaining[0] = next
+                done++
+                if (!PreparationJobs.save(slot, token, record.withBatches(remaining))) return Result.success()
             }
         }
         return if (remaining.isEmpty()) Result.success() else Result.retry()

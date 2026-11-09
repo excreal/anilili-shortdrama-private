@@ -105,7 +105,7 @@ internal fun SiteDownloadScreen(
             item(contentType = "primary-actions") {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = { confirm = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(24.dp),
-                        enabled = model.ready && !model.preparing && !model.discarding && model.pending == null) {
+                        enabled = model.ready && !model.submitting && !model.discarding) {
                         AppSymbol(AppIcon.Download, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Download")
                     }
                     Button(onClick = onWatch, modifier = Modifier.weight(1f), shape = RoundedCornerShape(24.dp)) {
@@ -159,7 +159,7 @@ internal fun SiteDownloadScreen(
                 item(contentType = "episode-heading") {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("${series.episodes.size} ${if (series.episodes.size == 1) "episode" else "episodes"}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { confirm = true }, enabled = model.ready && !model.preparing && model.pending == null) { Text("Download episodes") }
+                        TextButton(onClick = { confirm = true }, enabled = model.ready && !model.submitting && !model.discarding) { Text("Download episodes") }
                     }
                 }
                 items(series.episodes, key = { it.id }, contentType = { "episode-row" }) { episode ->
@@ -343,7 +343,7 @@ private fun RemoteDownloadSheet(series: SiteDownloadSeries, model: SiteDownloadV
                             val active = model.quality == quality
                             Box(Modifier.weight(1f).height(38.dp).clip(RoundedCornerShape(12.dp))
                                 .background(if (active) MaterialTheme.colorScheme.primary.copy(alpha = .18f) else Color.Transparent)
-                                .selectable(selected = active, enabled = !model.preparing, role = Role.Tab, onClick = { model.chooseQuality(quality) }),
+                                .selectable(selected = active, enabled = !model.submitting, role = Role.Tab, onClick = { model.chooseQuality(quality) }),
                                 contentAlignment = Alignment.Center) {
                                 Text(quality, style = MaterialTheme.typography.bodyMedium, fontWeight = if (active) FontWeight.W700 else FontWeight.W600,
                                     color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -397,7 +397,7 @@ private fun RemoteDownloadSheet(series: SiteDownloadSeries, model: SiteDownloadV
                 DestinationSummary(outputLabel(downloads))
                 Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(8.dp),
                     enabled = model.ready && model.selectionError == null && selected.isNotEmpty() && !downloads.checkingExistingFiles &&
-                        model.pending == null && !model.preparing && !model.discarding) {
+                        !model.submitting && !model.discarding) {
                     Text((if (series.isSingleVideo) "Download video" else "Download ${selected.size} episode${if (selected.size == 1) "" else "s"}").uppercase(),
                         style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.sp), fontWeight = FontWeight.W800)
                 }

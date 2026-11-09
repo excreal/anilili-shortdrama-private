@@ -20,6 +20,7 @@
 # Site batches and per-download request context are persisted alongside legacy records.
 -keep class com.example.animepahedl.ResolvedMedia { *; }
 -keep class com.example.animepahedl.SiteDownloadPreparation { *; }
+-keep class com.example.animepahedl.SiteDownloadPreparationBatch { *; }
 -keep class com.example.animepahedl.SiteDownloadSeries { *; }
 -keep class com.example.animepahedl.SiteDownloadEpisode { *; }
 -keep enum com.example.animepahedl.SiteDownloadProvider { *; }
