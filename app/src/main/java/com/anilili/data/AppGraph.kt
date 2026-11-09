@@ -47,7 +47,7 @@ internal object AppGraph {
     }
     fun configureOpenSubtitles(context: Context) {
         val key = context.getSharedPreferences("app-settings", Context.MODE_PRIVATE).getString("opensubtitles-api-key", "").orEmpty()
-        openSubtitles = OpenSubtitlesClient(httpClient, Json { ignoreUnknownKeys = true }, key, "Video Downloader/1.1")
+        openSubtitles = OpenSubtitlesClient(httpClient, Json { ignoreUnknownKeys = true }, key, "Anilili Short Dramas/1.1")
         OpenSubtitlesAuthManager.init(context, openSubtitles)
     }
     fun refreshIsTv(value: Boolean) { isTv = value }

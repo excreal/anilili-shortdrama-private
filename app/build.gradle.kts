@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.animepahedl"
+        applicationId = "com.anilili.shortdrama"
         minSdk = 35
         targetSdk = 37
         versionCode = 2

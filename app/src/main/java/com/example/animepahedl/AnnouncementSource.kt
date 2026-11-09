@@ -145,7 +145,7 @@ internal fun parseAnnouncement(json: Json, content: String): Announcement? = run
     val message = body["message"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank) ?: return null
     Announcement(
         id = id,
-        title = body["title"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank) ?: "Video Downloader",
+        title = body["title"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank) ?: "Anilili Short Dramas",
         message = message,
         url = sanitizeAnnouncementUrl(body["url"]?.jsonPrimitive?.content),
         urlLabel = body["urlLabel"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank),

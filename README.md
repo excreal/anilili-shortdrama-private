@@ -1,17 +1,20 @@
-# Video Downloader
+# Anilili Short Dramas
 
-The app now focuses on supported remote video sites. Explore opens Dramatip popular
-by default; its source dropdown also offers Kiss18, Narto Drama, EroticMV and KissKH (Korean dramas only).
-Search, homepage listings and available pagination use per-site catalog adapters.
-Tap a title to choose episodes/quality and download. Paste link remains available
-for supported site URLs and direct HLS/MP4/WebM files. TikTok is excluded.
+This edition focuses on short dramas. Browse opens Dramatip by default and offers
+Kiss18 and Narto Drama. Search, homepage listings, pagination, and short-form
+vertical playback use the per-site adapters. Tap a title to choose episodes and
+download. Paste link remains available for these sources and direct HLS/MP4/WebM
+files.
+
+The short-drama app has its own Android application ID and can be installed
+alongside Anilili Movies.
 
 The Material theme, poster cards, animated water-fill loading mark, splash and
 download display are adapted from the local Anilili application. EroticMV homepage and search were verified with browser navigation headers,
 referrers and a persistent session; blocked requests show a useful error. These are internal application APIs, not a
 separately hosted public REST service.
 
-# Animepahe DL for Android
+# Shared downloader engine
 
 A Material 3 downloader using the search, episode API, source selection, and
 Kwik/glot playlist-resolution flow from
