@@ -10,6 +10,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.io.StringReader
+import java.text.Normalizer
+import java.util.Locale
 
 private const val DRAMATIP_MAX_PAGE = 100
 
@@ -179,7 +181,7 @@ internal fun parseDramatipMetadataDetails(html: String, url: String): MetadataDe
     player?.dramaString("locale")?.takeIf(String::isNotBlank)?.let { attributes["locale"] = it }
     val rating = info?.select("span")?.firstOrNull { it.text() == "Rating" }?.parent()?.select("span")?.lastOrNull()?.text()?.toDoubleOrNull()
     val genreRow = info?.select("dl > div")?.firstOrNull { it.selectFirst("dt")?.text() == "Genres" }
-    val genres = genreRow?.select("dd span")?.map { MetadataTerm(it.text()) }.orEmpty().ifEmpty { base.genres }
+    val genres = linkDramatipGenres(genreRow?.select("dd span")?.map { MetadataTerm(it.text()) }.orEmpty().ifEmpty { base.genres })
     val sourceLink = info?.selectFirst("a[href*=/source/]")
     val sourceName = sourceLink?.text().orEmpty().ifBlank { source?.dramaString("source").orEmpty() }
     val images = (base.images + listOfNotNull(
@@ -213,6 +215,25 @@ internal fun parseDramatipMetadataDetails(html: String, url: String): MetadataDe
     return MetadataDetails(record, fallbackEpisodes, related = related,
         sections = parseDramatipMetadataPage(html, url).sections, payloads = payloads)
 }
+
+/** Dramatip displays genres as plain text, while its browse pages expose them as /category/{slug}. */
+private fun linkDramatipGenres(terms: List<MetadataTerm>): List<MetadataTerm> = terms.mapNotNull { term ->
+    val name = term.name.trim()
+    val slug = term.id?.takeIf { it.matches(Regex("[a-zA-Z0-9_-]+")) }
+        ?: Normalizer.normalize(name, Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+            .lowercase(Locale.ROOT)
+            .replace("&", " ")
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+            .takeIf { it.matches(Regex("[a-z0-9]+(?:-[a-z0-9]+)*")) }
+        ?: return@mapNotNull null
+    val url = term.url?.takeIf { raw ->
+        dramatipMetadataUrl(raw) && runCatching { raw.toHttpUrl().encodedPath.matches(Regex("^/(?:[a-z]{2}/)?category/[a-zA-Z0-9_-]+/?$")) }.getOrDefault(false)
+    }
+        ?: "https://dramatip.net/category/$slug"
+    MetadataTerm(name, id = slug, url = url, count = term.count, attributes = term.attributes)
+}.distinctBy { it.url }
 
 private fun dramatipMetadataUrl(raw: String): Boolean = runCatching { raw.toHttpUrl().let {
     it.scheme == "https" && it.host in setOf("dramatip.net", "www.dramatip.net") && it.username.isEmpty() && it.password.isEmpty()
@@ -284,7 +305,7 @@ internal fun dramatipSubtitleTracks(source: JsonObject?, pageUrl: String): List<
         if (encoded.isBlank()) return@mapNotNull null
         // Subtitle URLs use the same AES-GCM wrapper as media sources. Keep already-public
         // URLs intact, but never let a decoded descriptor bypass the HTTPS/credential checks.
-        val raw = if (encoded.matches(Regex("(?i)^https?://.*")) || encoded.startsWith("/") ||
+        val raw = if (runCatching { encoded.toHttpUrl() }.isSuccess || encoded.startsWith("/") ||
             encoded.startsWith("./") || encoded.startsWith("../")) encoded
         else runCatching { decryptDramaSource(encoded) }.getOrNull() ?: return@mapNotNull null
         val url = pageUrl.toHttpUrl().resolve(raw)?.takeIf {

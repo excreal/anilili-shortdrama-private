@@ -11,6 +11,25 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 class DramatipMetadataFixtureTest {
+    @Test fun detailGenresBecomeSafeBrowseCategoryLinks() {
+        val fixture = """
+            <html><head><title>Test drama</title></head><body>
+              <h1>Test drama</h1>
+              <div id="series-info"><dl><div><dt>Genres</dt><dd>
+                <span>Hidden Identity</span><span>Café &amp; Revenge</span>
+              </dd></div></dl></div>
+            </body></html>
+        """.trimIndent()
+
+        val genres = parseDramatipMetadataDetails(fixture, "https://dramatip.net/series/test-drama").record.genres
+
+        assertEquals(listOf("Hidden Identity", "Café & Revenge"), genres.map { it.name })
+        assertEquals(
+            listOf("https://dramatip.net/category/hidden-identity", "https://dramatip.net/category/cafe-revenge"),
+            genres.map { it.url },
+        )
+    }
+
     @Test fun heroAndCardHeadingsStayDistinctAndGermanNavigationIsRetained() {
         val fixture = """
             <html lang="de"><body>
