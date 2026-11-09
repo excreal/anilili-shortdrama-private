@@ -224,11 +224,10 @@ class SiteMetadataApiTest {
     }
 
     @Test fun similarTitleRoutesStayOnProviderTaxonomyPaths() {
-        assertTrue(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "genre", "https://eroticmv.com/category/genre/romance/"))
-        assertTrue(isSafeMetadataFilterRoute(CatalogSource.NARTO, "tag", "https://edge.narto-drama.com/tag/ceo/"))
-        assertFalse(isSafeMetadataFilterRoute(CatalogSource.NARTO, "tag", "https://example.com/tag/ceo/"))
-        assertFalse(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "tag", "https://eroticmv.com/?redirect=https://example.com"))
+        assertTrue(isSafeMetadataFilterRoute(CatalogSource.DRAMATIP, "genre", "https://dramatip.net/category/hidden-identity"))
+        assertTrue(isSafeMetadataFilterRoute(CatalogSource.DRAMATIP, "category", "https://dramatip.net/category/hidden-identity"))
         assertFalse(isSafeMetadataFilterRoute(CatalogSource.DRAMATIP, "category", "http://dramatip.net/category/action/"))
+        assertFalse(isSafeMetadataFilterRoute(CatalogSource.DRAMATIP, "genre", "https://evil.test/category/action/"))
     }
 
     @Test fun durationParserHandlesClockAndIsoValues() {

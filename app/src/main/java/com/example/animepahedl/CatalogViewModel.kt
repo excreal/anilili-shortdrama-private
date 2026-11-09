@@ -234,7 +234,7 @@ internal fun isSafeMetadataFilterRoute(source: CatalogSource, kind: String, raw:
         if (url.scheme != "https" || url.username.isNotEmpty() || url.password.isNotEmpty() || url.querySize > 0 || url.fragment != null) return false
         if (source == CatalogSource.EROTICMV) return safeEroticMvFilterRoute(kind, raw, url)
         return when (source) {
-            CatalogSource.DRAMATIP -> url.host in setOf("dramatip.net", "www.dramatip.net") && kind == "category" && url.encodedPath.matches(Regex("^/(?:[a-z]{2}/)?category/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$"))
+            CatalogSource.DRAMATIP -> url.host in setOf("dramatip.net", "www.dramatip.net") && kind in setOf("category", "genre") && url.encodedPath.matches(Regex("^/(?:[a-z]{2}/)?category/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$"))
             CatalogSource.NARTO -> url.host in setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com") &&
                 url.encodedPath.matches(Regex("^/(?:genre|tag|category)/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$")) &&
                 url.encodedPath.startsWith(if (kind == "genre") "/genre/" else if (kind == "tag") "/tag/" else "/category/")
