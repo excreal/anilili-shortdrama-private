@@ -77,6 +77,16 @@ if [[ $variant != release ]]; then tasks+=(:app:assembleDebug); fi
 if [[ $variant != debug ]]; then tasks+=(:app:assembleRelease); fi
 bash ./gradlew "${tasks[@]}" --max-workers="$workers" --console=plain
 
+if [[ $variant != debug ]]; then
+    version_code=$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' app/build.gradle.kts | head -n 1)
+    version_name=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' app/build.gradle.kts | head -n 1)
+    if [[ -n $version_code && -n $version_name ]]; then
+        versioned_release="${release_apk%/*}/Anilili-Short-Drama-v${version_name}.${version_code}-release.apk"
+        ln -sfn "$(basename -- "$release_apk")" "$project_dir/$versioned_release"
+        release_apk=$versioned_release
+    fi
+fi
+
 echo
 echo 'Build complete. APK outputs:'
 if [[ $variant != release ]]; then

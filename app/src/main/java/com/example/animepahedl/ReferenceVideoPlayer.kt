@@ -90,6 +90,7 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
     val refreshedLinks = remember(series.provider, series.id) { MediaLinkRefreshGuard() }
     val seriesKey = "series:${series.provider}:${series.id}"
     val current = series.episodes.getOrNull(index) ?: return
+    var nartoStreamFallbackIndex by remember(current.id, attempt) { mutableIntStateOf(0) }
     val colors = remember { appColors(ThemeSpec(), wallpaperSeed(context)) }
 
     fun close() {
@@ -232,10 +233,22 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
     fun persist(url: String, position: Long, duration: Long, completed: Boolean = false) {
         ReferencePlaybackRegistry.progressForStream(url, position, duration, completed)
     }
+    val activeStream = result?.streams?.getOrNull(nartoStreamFallbackIndex) ?: result?.streams?.firstOrNull()
     fun playbackFailure(error: AnililiFailure, url: String, position: Long) {
         if (position > 0) persist(url, position, history.duration(current.url))
         ReferencePlaybackRegistry.capture()
         PlaybackService.stopActivePlayback()
+        if (series.provider == SiteDownloadProvider.NARTO && result != null) {
+            val failedIndex = result.streams.indexOfFirst { it.url == url }
+                .takeIf { it >= 0 } ?: nartoStreamFallbackIndex
+            val nextIndex = failedIndex + 1
+            if (nextIndex < result.streams.size) {
+                ReferencePlaybackRegistry.ready.value = false
+                failure = null
+                nartoStreamFallbackIndex = nextIndex
+                return
+            }
+        }
         when {
             result?.local == true && !localOnlySeries && onlineOnly.add(current.id) -> attempt++
             !localOnlySeries && refreshedLinks.shouldRefresh(series.provider, current.id) -> { failure = null; attempt++ }
@@ -269,9 +282,9 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
                     when {
                         failure != null -> ErrorBox(failure!!, onRetry = { failure = null; attempt++ })
                         result == null -> LoadingBox()
-                        else -> key(current.id, attempt) {
+                        else -> key(current.id, attempt, nartoStreamFallbackIndex) {
                             PlayerSurface(
-                                stream = result.streams.first(), qualityStreams = result.streams,
+                                stream = activeStream ?: result.streams.first(), qualityStreams = result.streams,
                                 subtitles = result.subtitles.map { SubtitleItem(it.url, it.label, it.language, it.mimeType) },
                                 skip = null, seriesTitle = series.title,
                                 episodeTitle = if (series.isSingleVideo) series.title else "Episode ${current.displayNumber}",
@@ -280,7 +293,7 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
                                 contentScaleOverride = if (series.provider == SiteDownloadProvider.KISSKH)
                                     com.anilili.data.settings.PlayerContentScale.FIT else null,
                                 autoAdvanced = autoAdvanced,
-                                onEnded = { result.streams.firstOrNull()?.let { persist(it.url, history.duration(current.url), history.duration(current.url), true) } },
+                                onEnded = { activeStream?.let { persist(it.url, history.duration(current.url), history.duration(current.url), true) } },
                                 onNextEpisode = { select(index + 1) }, onPreviousEpisode = { select(index - 1) },
                                 onAutoAdvance = { select(index + 1, true) }, onError = ::playbackFailure,
                                 onStalled = { url, position -> playbackFailure(AnililiError.PLAYBACK_SOURCE_UNREACHABLE.asPlayerFailure(), url, position) },
