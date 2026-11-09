@@ -321,17 +321,20 @@ internal fun eroticVideoSource(page: String): String? {
     return dramaJsonAfter(page, Regex("\"single_video_url\"\\s*:"))?.takeIf { it.isJsonPrimitive }?.asString
 }
 internal fun chooseDramaVariant(variants: List<DramaVariant>, quality: String): DramaVariant {
+    return chooseDramaVariant(variants, quality, preferHlsOnTie = true)
+}
+
+internal fun chooseNartoVariant(variants: List<DramaVariant>, quality: String): DramaVariant =
+    chooseDramaVariant(variants, quality, preferHlsOnTie = false)
+
+private fun chooseDramaVariant(variants: List<DramaVariant>, quality: String, preferHlsOnTie: Boolean): DramaVariant {
     require(variants.isNotEmpty()) { "No supported media variants found." }
     val target = quality.removeSuffix("p").toIntOrNull()
     if (quality !in setOf("Best", "Original") && target == null) throw IOException("Invalid quality selection.")
     val candidates = if (target == null) variants else variants.filter { dramaHeight(it) <= target }
     if (candidates.isEmpty()) return variants.minByOrNull { dramaHeight(it) }!!
-    // Narto can expose both a native MP4 and an HLS URL marked "Original". The
-    // HLS endpoint is not consistently accessible (some return 403), while its
-    // direct_play_url remains playable. Prefer the direct file on equal quality;
-    // providers that need HLS still return it as their only/highest-quality item.
     return candidates.maxWithOrNull(compareBy<DramaVariant> { dramaHeight(it) }
-        .thenBy { if (it.mimeType == "application/x-mpegURL") 0 else 1 })!!
+        .thenBy { if ((it.mimeType == "application/x-mpegURL") == preferHlsOnTie) 1 else 0 })!!
 }
 private fun dramaHeight(variant: DramaVariant): Int = variant.quality.removeSuffix("p").toIntOrNull() ?: minOf(variant.width, variant.height).coerceAtLeast(0)
 
