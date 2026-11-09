@@ -221,10 +221,14 @@ private fun RemoteDetailHero(series: SiteDownloadSeries, images: ImageLoader) {
     val backdrop = series.metadata?.images?.firstOrNull { it.role in setOf("banner", "backdrop", "featured_artwork") }?.url ?: series.poster
     val poster = series.posterThumbnail()
     val bannerArtwork = series.provider == SiteDownloadProvider.KISSKH
-    Box(Modifier.fillMaxWidth().height(286.dp)) {
+    // Match Anilili's detail hero: carry the artwork behind the status bar and toolbar, then
+    // continue it 190dp below the chrome before the cover/title row closes the header.
+    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
+    val backdropHeight = topInset + 190.dp
+    Box(Modifier.fillMaxWidth().height(topInset + 286.dp)) {
         AsyncImage(model = backdrop, imageLoader = images, contentDescription = null,
-            modifier = Modifier.fillMaxWidth().height(190.dp), contentScale = ContentScale.Crop)
-        Box(Modifier.fillMaxWidth().height(190.dp).background(Brush.verticalGradient(listOf(Color.Transparent, canvas))))
+            modifier = Modifier.fillMaxWidth().height(backdropHeight), contentScale = ContentScale.Crop)
+        Box(Modifier.fillMaxWidth().height(backdropHeight).background(Brush.verticalGradient(listOf(Color.Transparent, canvas))))
         Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
             Thumbnail(poster, series.title, images,
