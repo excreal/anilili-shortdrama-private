@@ -42,7 +42,7 @@ internal fun CatalogScreen(
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(model.source) { mutableStateOf(emptyList<String>()) }
     // Keep the short-drama catalog at the original dense poster size on phones.
     val columns = if (LocalConfiguration.current.screenWidthDp >= 600) 4 else 3
-    val searchSourceName = if (model.source == CatalogSource.KISSKH) "KissKH" else model.source.label
+    val searchSourceName = model.source.label
     LaunchedEffect(grid, model.items.size, model.loading, browseMode) {
         snapshotFlow { browseMode && model.items.isNotEmpty() && !model.loading && model.nextUrl != null &&
             (grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) >= grid.layoutInfo.totalItemsCount - 5 }

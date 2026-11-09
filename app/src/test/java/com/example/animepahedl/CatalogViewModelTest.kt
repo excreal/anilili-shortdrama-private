@@ -15,6 +15,11 @@ class CatalogViewModelTest {
         )
     }
 
+    @Test fun shortDramaCatalogContainsOnlyItsThreeSources() {
+        assertEquals(setOf(CatalogSource.DRAMATIP, CatalogSource.KISS18, CatalogSource.NARTO), ShortDramaCatalogConfig.sources.toSet())
+        assertEquals(ShortDramaCatalogConfig.sources.toSet(), CatalogSource.entries.toSet())
+    }
+
     @Test fun cacheKeepsEveryCachedItemWithItsMatchingTailContinuation() {
         val items = (0 until 750).map { CatalogItem("Title $it", "https://source.test/$it", "") }
         val original = CatalogPage(items, "https://source.test/page/16")
@@ -26,14 +31,10 @@ class CatalogViewModelTest {
         assertEquals(original.nextUrl, restored.nextUrl)
     }
 
-    @Test fun kisskhOldCacheGetsBannerAspectWithoutChangingOtherSources() {
-        val oldCache = CatalogPage(listOf(CatalogItem("True Beauty", "https://kisskh.do/Drama/True-Beauty?id=1", "banner")))
+    @Test fun shortDramaCatalogCacheDoesNotChangePosterShape() {
+        val original = CatalogPage(listOf(CatalogItem("Story", "https://dramatip.net/series/story", "poster")))
 
-        val kisskh = catalogPageForSource(CatalogSource.KISSKH, oldCache)
-        val dramatip = catalogPageForSource(CatalogSource.DRAMATIP, oldCache)
-
-        assertTrue(kisskh.items.single().wideArtwork)
-        assertFalse(dramatip.items.single().wideArtwork)
+        assertEquals(original, catalogPageForSource(CatalogSource.DRAMATIP, original))
     }
 
     @Test fun failedRefreshRetainsResultsAndContinuationForSameQueryAndSource() {

@@ -6,11 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import java.net.URI
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
-
-internal enum class CatalogSource(val label: String) { DRAMATIP("Dramatip"), KISS18("Kiss18"), NARTO("Narto Drama"), EROTICMV("EroticMV"), KISSKH("KissKH · K-drama") }
+internal enum class CatalogSource(val label: String) { DRAMATIP("Dramatip"), KISS18("Kiss18"), NARTO("Narto Drama") }
 
 internal object ShortDramaCatalogConfig {
     val sources = listOf(CatalogSource.DRAMATIP, CatalogSource.KISS18, CatalogSource.NARTO)
@@ -79,9 +75,9 @@ private const val MAX_CATALOG_CACHE_BYTES = 4_000_000L
 internal fun catalogCacheJson(page: CatalogPage, gson: com.google.gson.Gson = com.google.gson.Gson()): String? =
     gson.toJson(page).takeIf { it.toByteArray(Charsets.UTF_8).size <= MAX_CATALOG_CACHE_BYTES }
 
-/** Older cache files predate KissKH's banner layout field; normalize them when read. */
+/** Reject cached catalogues tagged with a source outside this edition. */
 internal fun catalogPageForSource(source: CatalogSource, page: CatalogPage): CatalogPage =
-    if (source == CatalogSource.KISSKH) page.copy(items = page.items.map { it.copy(wideArtwork = true) }) else page
+    page.also { require(source in ShortDramaCatalogConfig.sources) }
 
 /** Results may survive a failed forced refresh only while the displayed query/source identity is unchanged. */
 internal fun shouldPreserveCatalogResultsOnRefresh(force: Boolean, displayedKey: String?, requestKey: String): Boolean =
@@ -141,12 +137,10 @@ internal class CatalogViewModel(application: Application) : AndroidViewModel(app
             cacheDir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(30)?.forEach { it.delete() }
         } }
     }
-    private val adapters by lazy { CatalogSource.entries.associateWith { source -> when(source) {
+    private val adapters by lazy { ShortDramaCatalogConfig.sources.associateWith { source -> when(source) {
         CatalogSource.DRAMATIP -> DramatipCatalog(cookieHeader = cookies::headerFor)
         CatalogSource.KISS18 -> Kiss18Catalog()
         CatalogSource.NARTO -> NartoCatalog(cookieHeader = cookies::headerFor)
-        CatalogSource.EROTICMV -> EroticMvCatalog(cookieHeader = cookies::headerFor)
-        CatalogSource.KISSKH -> KisskhCatalog(application.cacheDir, cookies::headerFor)
     } } }
     init {
         load(false)
@@ -169,7 +163,6 @@ internal class CatalogViewModel(application: Application) : AndroidViewModel(app
             SiteDownloadProvider.DRAMATIP -> CatalogSource.DRAMATIP
             SiteDownloadProvider.KISS18 -> CatalogSource.KISS18
             SiteDownloadProvider.NARTO -> CatalogSource.NARTO
-            SiteDownloadProvider.EROTICMV -> CatalogSource.EROTICMV
             else -> return
         }
         if (mapped == CatalogSource.KISS18) {
@@ -232,45 +225,11 @@ internal fun isSafeMetadataFilterRoute(source: CatalogSource, kind: String, raw:
         if (raw == null || kind !in setOf("genre", "category", "tag", "actor", "director")) return false
         val url = runCatching { raw.toHttpUrl() }.getOrNull() ?: return false
         if (url.scheme != "https" || url.username.isNotEmpty() || url.password.isNotEmpty() || url.querySize > 0 || url.fragment != null) return false
-        if (source == CatalogSource.EROTICMV) return safeEroticMvFilterRoute(kind, raw, url)
         return when (source) {
             CatalogSource.DRAMATIP -> url.host in setOf("dramatip.net", "www.dramatip.net") && kind in setOf("category", "genre") && url.encodedPath.matches(Regex("^/(?:[a-z]{2}/)?category/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$"))
             CatalogSource.NARTO -> url.host in setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com") &&
                 url.encodedPath.matches(Regex("^/(?:genre|tag|category)/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$")) &&
                 url.encodedPath.startsWith(if (kind == "genre") "/genre/" else if (kind == "tag") "/tag/" else "/category/")
-            CatalogSource.EROTICMV -> false
             CatalogSource.KISS18 -> false
-            else -> false
         }
-}
-
-private fun safeEroticMvFilterRoute(kind: String, raw: String, url: okhttp3.HttpUrl): Boolean {
-    if (url.host !in setOf("eroticmv.com", "www.eroticmv.com") || url.port != 443) return false
-    val rawPath = runCatching { URI(raw).rawPath }.getOrNull() ?: return false
-    if (rawPath.contains('\\') || Regex("%(?:2f|5c)", RegexOption.IGNORE_CASE).containsMatchIn(rawPath)) return false
-    val encodedSegments = rawPath.split('/').drop(1).toMutableList()
-    if (encodedSegments.lastOrNull().isNullOrEmpty()) encodedSegments.removeAt(encodedSegments.lastIndex)
-    if (encodedSegments.isEmpty() || encodedSegments.any(String::isEmpty)) return false
-    val segments = encodedSegments.map { segment ->
-        runCatching { URLDecoder.decode(segment.replace("+", "%2B"), StandardCharsets.UTF_8) }.getOrNull()
-            ?: return false
-    }
-    if (segments.any { it == "." || it == ".." || '/' in it || '\\' in it }) return false
-    val archive = if (segments.lastOrNull() == "page") return false else segments
-    val normalized = archive.toMutableList()
-    if (normalized.size >= 2 && normalized[normalized.lastIndex - 1] == "page") {
-        if (normalized.last().toIntOrNull()?.let { it > 0 } != true) return false
-        normalized.removeAt(normalized.lastIndex)
-        normalized.removeAt(normalized.lastIndex)
-    }
-    if (normalized.any { it != "category" && it !in setOf("genre", "country", "decades", "tag", "actor", "director") && !it.matches(Regex("[\\p{L}\\p{N}_.~-]+")) }) return false
-    fun slug(value: String?) = value != null && value != "." && value != ".." && value.matches(Regex("[\\p{L}\\p{N}_.~-]+"))
-    return when (kind) {
-        "actor", "director" -> normalized.size == 2 && normalized[0] == kind && slug(normalized[1])
-        "tag" -> normalized.size == 2 && normalized[0] == "tag" && slug(normalized[1])
-        "genre" -> normalized.size == 3 && normalized[0] == "category" && normalized[1] == "genre" && slug(normalized[2])
-        "category" -> (normalized.size == 2 && normalized[0] == "category" && slug(normalized[1])) ||
-            (normalized.size == 3 && normalized[0] == "category" && normalized[1] in setOf("genre", "country", "decades") && slug(normalized[2]))
-        else -> false
-    }
 }

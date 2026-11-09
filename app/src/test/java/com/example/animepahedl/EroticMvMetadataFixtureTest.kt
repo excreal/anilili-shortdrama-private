@@ -74,12 +74,4 @@ class EroticMvMetadataFixtureTest {
         assertEquals(listOf("Good"), result.items.map { it.title })
     }
 
-    @Test fun encodedKoreanPersonRoutesAreAcceptedButEncodedSeparatorsAreRejected() {
-        assertTrue(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "actor", "https://eroticmv.com/actor/yeon-joo/"))
-        assertTrue(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "director", "https://eroticmv.com/director/choi-jung-ja-%EC%B5%9C%EC%A0%95%EC%9E%90/"))
-        assertFalse(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "actor", "https://eroticmv.com/actor/a%2Fdirector%2Fb/"))
-        assertFalse(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "director", "https://eroticmv.com/director/a%5Cb/"))
-        assertFalse(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "actor", "https://eroticmv.com/actor/%2E%2E/"))
-        assertFalse(isSafeMetadataFilterRoute(CatalogSource.EROTICMV, "actor", "https://example.com/actor/yeon-joo/"))
-    }
 }
