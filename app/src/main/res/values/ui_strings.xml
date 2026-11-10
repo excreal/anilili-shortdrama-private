@@ -21,7 +21,6 @@
     <string name="ui_downloads">Downloads</string>
     <string name="ui_episodes_at_a_time">Episodes at a time</string>
     <string name="ui_explore">Explore</string>
-    <string name="ui_explore_anime">Explore anime</string>
     <string name="ui_find_a_story_worth_saving">Find a story worth saving.</string>
     <string name="ui_find_downloaded_episodes">Find downloaded episodes</string>
     <string name="ui_from">From</string>
@@ -57,7 +56,6 @@
     <string name="ui_save_report">Save report</string>
     <string name="ui_saved_cookies_are_shared_with_searches_and_downloads">Saved cookies are shared with searches and downloads.</string>
     <string name="ui_saving_hls_needs_space_for_cached_segments_an_assembled_video_and">Saving HLS needs space for cached segments, an assembled video, and its final copy. The selected provider may have a separate capacity limit.</string>
-    <string name="ui_search_anime">Search anime</string>
     <string name="ui_secure_browser">SECURE BROWSER</string>
     <string name="ui_select">Select</string>
     <string name="ui_select_all">Select all</string>
