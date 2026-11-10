@@ -147,6 +147,10 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
                 withContext(Dispatchers.IO) {
                     listOfNotNull(record?.uri?.takeIf { removePublished && it.isNotBlank() }, record?.pendingUri?.takeIf { it.isNotBlank() && it != record.uri }).distinct()
                         .forEach { deleteOwnedMedia(app, (it).toUri()) }
+                    if (removePublished && record != null) {
+                        ProviderSubtitles.deleteUnreferenced(id, record.media?.subtitles.orEmpty())
+                        deleteOutputCompanions(app, record)
+                    }
                     if (id.startsWith("direct:")) {
                         val number = id.removePrefix("direct:")
                         (app.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).remove(number.toLong())

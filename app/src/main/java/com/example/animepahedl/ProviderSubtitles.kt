@@ -19,6 +19,14 @@ import javax.crypto.spec.SecretKeySpec
 data class MediaSubtitle(val url: String, val label: String, val language: String,
     val mimeType: String = "text/vtt", val isDefault: Boolean = false)
 
+internal fun unreferencedProviderSubtitleFile(url: String, directory: File, retained: Set<String>): File? {
+    if (url in retained) return null
+    val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return null
+    if (uri.scheme != "file") return null
+    val file = runCatching { File(uri.path.orEmpty()).canonicalFile }.getOrNull() ?: return null
+    return file.takeIf { it.parentFile == directory.canonicalFile && it.extension == "vtt" }
+}
+
 /** Normalized files live outside cache so downloaded captions remain available offline. */
 internal object ProviderSubtitles {
     private lateinit var context: Context
@@ -27,7 +35,20 @@ internal object ProviderSubtitles {
     private val active = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     fun init(context: Context) { this.context = context.applicationContext }
     fun hold(tracks: List<MediaSubtitle>) { active.addAll(tracks.map { it.url }) }
-    fun release(tracks: List<MediaSubtitle>) { active.removeAll(tracks.map { it.url }.toSet()) }
+    fun release(tracks: List<MediaSubtitle>) {
+        active.removeAll(tracks.map { it.url }.toSet())
+        deleteUnreferenced("", tracks)
+    }
+    /** Remove app-local subtitle copies when their last downloaded-video reference is deleted. */
+    fun deleteUnreferenced(downloadId: String, tracks: List<MediaSubtitle>) {
+        if (!::context.isInitialized || tracks.isEmpty()) return
+        val retained = DownloadStore.all().filterKeys { it != downloadId }.values
+            .flatMap { it.media?.subtitles.orEmpty() }.map { it.url }.toSet() + active
+        val directory = File(context.filesDir, "provider-subtitles").canonicalFile
+        tracks.forEach { track ->
+            unreferencedProviderSubtitleFile(track.url, directory, retained)?.delete()
+        }
+    }
     suspend fun localize(client: OkHttpClient, track: MediaSubtitle): MediaSubtitle = withContext(Dispatchers.IO) {
         val directory = File(context.filesDir, "provider-subtitles").apply { mkdirs() }
         val hash = MessageDigest.getInstance("SHA-256").digest(track.url.toByteArray()).joinToString("") { "%02x".format(it) }
