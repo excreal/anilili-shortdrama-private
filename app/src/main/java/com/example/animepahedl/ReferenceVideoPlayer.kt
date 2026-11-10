@@ -179,7 +179,7 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
                     }, true, true)
                 } else {
                     check(!localOnlySeries) { "This saved video is missing. Relink it in Downloads." }
-                    val options = repository.resolveChoices(current.url, cookies.headerFor(current.url), includeSubtitles = false).map(cookies::applyTo)
+                    val options = repository.resolveChoices(current.url, cookies.headerFor(current.url)).map(cookies::applyTo)
                     check(options.isNotEmpty()) { "This episode has no playable video." }
                     val streams = options.map { media ->
                         val height = media.quality.removeSuffix("p").toIntOrNull()
@@ -203,29 +203,6 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
         }
     }
     val result = loaded?.takeIf { it.episode.id == current.id }
-    LaunchedEffect(current.id, attempt, result?.episode?.id) {
-        val ready = result ?: return@LaunchedEffect
-        if (series.provider != SiteDownloadProvider.KISSKH || ready.subtitles.isNotEmpty()) return@LaunchedEffect
-        val episodeId = current.id
-        val resolvingAttempt = attempt
-        val tracks = try {
-            withContext(Dispatchers.IO) { KisskhApi(cookies = cookies::headerFor).playbackSubtitles(episodeId) }
-        } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { emptyList() }
-        if (tracks.isEmpty()) return@LaunchedEffect
-        val latest = loaded
-        if (series.episodes.getOrNull(index)?.id != episodeId || attempt != resolvingAttempt || latest?.episode?.id != episodeId) return@LaunchedEffect
-        loaded = latest.copy(subtitles = tracks)
-        if (ready.local) withContext(Dispatchers.IO) {
-            val rows = DownloadStore.all()
-            val entry = rows.entries.firstOrNull { it.value.uri == ready.streams.firstOrNull()?.url }
-            if (entry != null) {
-                val record = entry.value
-                DownloadStore.put(entry.key, record.copy(media =
-                    (record.media ?: ResolvedMedia(record.uri, record.quality ?: "Original", "und")).copy(subtitles = tracks)))
-            }
-        }
-    }
     DisposableEffect(result?.subtitles) {
         val tracks = result?.subtitles.orEmpty(); ProviderSubtitles.hold(tracks)
         onDispose { ProviderSubtitles.release(tracks) }
@@ -290,8 +267,6 @@ internal fun ReferenceVideoPlayer(series: SiteDownloadSeries, quality: String, o
                                 episodeTitle = if (series.isSingleVideo) series.title else "Episode ${current.displayNumber}",
                                 pauseDescription = series.description, artworkUrl = series.poster, animeId = registryId,
                                 provider = series.provider.name, category = "sub", episode = current.displayNumber,
-                                contentScaleOverride = if (series.provider == SiteDownloadProvider.KISSKH)
-                                    com.anilili.data.settings.PlayerContentScale.FIT else null,
                                 autoAdvanced = autoAdvanced,
                                 onEnded = { activeStream?.let { persist(it.url, history.duration(current.url), history.duration(current.url), true) } },
                                 onNextEpisode = { select(index + 1) }, onPreviousEpisode = { select(index - 1) },

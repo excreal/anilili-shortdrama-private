@@ -17,7 +17,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** A data API independent of UI cards. Null/empty means unreported, never an inferred rating/tag. */
-@Keep internal enum class MetadataSite { DRAMATIP, KISS18, NARTO, EROTICMV, KISSKH }
+@Keep internal enum class MetadataSite { DRAMATIP, KISS18, NARTO }
 @Keep internal data class MetadataImage(val url: String, val role: String = "image", val width: Int? = null,
     val height: Int? = null, val language: String? = null, val caption: String? = null)
 @Keep internal data class MetadataTerm(val name: String, val id: String? = null, val url: String? = null,

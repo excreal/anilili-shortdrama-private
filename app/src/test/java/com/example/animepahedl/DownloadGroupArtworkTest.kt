@@ -25,12 +25,4 @@ class DownloadGroupArtworkTest {
         assertEquals("available-artwork.jpg", downloadGroupArtwork(listOf(first, second), emptyMap()))
     }
 
-    @Test fun eroticMovieDownloadIdentityUsesItsNormalPosterVariant() {
-        val series = SiteDownloadSeries(SiteDownloadProvider.EROTICMV, "movie", "Movie", "banner.jpg",
-            "https://eroticmv.com/movie/", listOf(SiteDownloadEpisode("movie", 1, "Movie", "https://eroticmv.com/movie/")),
-            metadata = SiteShowMetadata(images = listOf(SiteShowImage("poster.jpg", "video-poster"),
-                SiteShowImage("banner.jpg", "banner"))))
-
-        assertEquals("poster.jpg", DownloadIdentity.siteDownload(series, series.episodes.single(), "Best", "und").anime.poster)
-    }
 }

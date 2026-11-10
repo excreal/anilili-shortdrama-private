@@ -220,7 +220,6 @@ private fun RemoteDetailHero(series: SiteDownloadSeries, images: ImageLoader) {
     val canvas = MaterialTheme.colorScheme.background
     val backdrop = series.metadata?.images?.firstOrNull { it.role in setOf("banner", "backdrop", "featured_artwork") }?.url ?: series.poster
     val poster = series.posterThumbnail()
-    val bannerArtwork = series.provider == SiteDownloadProvider.KISSKH
     // Match Anilili's detail hero: carry the artwork behind the status bar and toolbar, then
     // continue it 190dp below the chrome before the cover/title row closes the header.
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
@@ -232,8 +231,7 @@ private fun RemoteDetailHero(series: SiteDownloadSeries, images: ImageLoader) {
         Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
             Thumbnail(poster, series.title, images,
-                Modifier.width(if (bannerArtwork) 120.dp else 108.dp)
-                    .aspectRatio(if (bannerArtwork) 16f / 9f else 2f / 3f).clip(RoundedCornerShape(12.dp))
+                Modifier.width(108.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)))
             Column(Modifier.weight(1f).padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 60.dp), contentAlignment = Alignment.BottomStart) {
@@ -256,7 +254,7 @@ private fun SiteMetadataHighlights(provider: SiteDownloadProvider, metadata: Sit
     val people = metadata.people.take(6).groupBy { it.role?.replaceFirstChar(Char::uppercase) ?: "People" }
     val facts = listOfNotNull(metadata.year?.toString(), metadata.status, metadata.countries.firstOrNull(),
         metadata.languages.firstOrNull(), metadata.studios.firstOrNull(),
-        metadata.episodeCount?.takeUnless { provider in setOf(SiteDownloadProvider.EROTICMV, SiteDownloadProvider.DIRECT) }
+        metadata.episodeCount?.takeUnless { provider == SiteDownloadProvider.DIRECT }
             ?.let { "$it ${if (it == 1) "episode" else "episodes"}" },
         metadata.durationSeconds?.let(::metadataDurationLabel)).distinct()
     if (rating == null && facts.isEmpty() && metadata.genres.isEmpty() && metadata.categories.isEmpty() && metadata.tags.isEmpty() &&
@@ -299,7 +297,7 @@ private fun MetadataTermChips(
             items(unique, key = { it.url ?: it.id ?: it.name }, contentType = { "metadata-term" }) { term ->
                 val filterable = when (provider) {
                     SiteDownloadProvider.KISS18 -> kind in setOf("tag", "category", "genre")
-                    SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.NARTO, SiteDownloadProvider.EROTICMV -> term.url != null
+                    SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.NARTO -> term.url != null
                     else -> false
                 }
                 AssistChip(onClick = { if (filterable) onExplore(kind, term) }, enabled = filterable,

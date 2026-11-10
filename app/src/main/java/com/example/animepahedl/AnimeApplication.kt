@@ -28,7 +28,7 @@ class AnimeApplication : Application(), coil.ImageLoaderFactory {
                 // Scope imported sessions to the image URL's cookie domain, including redirect hops.
                 cookies.headerFor(request.url.toString()).takeIf(String::isNotBlank)?.let { builder.header("Cookie", it) }
                 val host = request.url.host
-                if (host in setOf("kiss18.vip", "www.kiss18.vip", "eroticmv.com", "www.eroticmv.com", "narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com"))
+                if (host in setOf("kiss18.vip", "www.kiss18.vip", "narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com"))
                     builder.header("Referer", request.url.newBuilder().encodedPath("/").query(null).fragment(null).build().toString())
                 val response = chain.proceed(builder.build())
                 // Do not let CDN error pages enter Coil's persistent success cache, even when

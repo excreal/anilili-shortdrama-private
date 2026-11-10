@@ -13,16 +13,13 @@ internal class SiteMetadataApis(private val cookieHeader: ((String) -> String)? 
         MetadataSite.DRAMATIP to DramatipMetadataApi(cookieHeader),
         MetadataSite.KISS18 to Kiss18MetadataApi(cookieHeader),
         MetadataSite.NARTO to NartoMetadataApi(cookieHeader),
-        MetadataSite.EROTICMV to EroticMvMetadataApi(cookieHeader),
-        MetadataSite.KISSKH to KisskhMetadataApi(cookieHeader),
     ) }
     operator fun get(site: MetadataSite): SiteMetadataApi = adapters.getValue(site)
     fun forProvider(provider: SiteDownloadProvider): SiteMetadataApi = get(when (provider) {
         SiteDownloadProvider.DRAMATIP -> MetadataSite.DRAMATIP
         SiteDownloadProvider.KISS18 -> MetadataSite.KISS18
         SiteDownloadProvider.NARTO -> MetadataSite.NARTO
-        SiteDownloadProvider.EROTICMV -> MetadataSite.EROTICMV
-        SiteDownloadProvider.KISSKH -> MetadataSite.KISSKH
+        SiteDownloadProvider.EROTICMV, SiteDownloadProvider.KISSKH -> throw IllegalArgumentException("This source is not included in the ShortDrama edition.")
         SiteDownloadProvider.DIRECT -> throw IllegalArgumentException("A direct media URL has no site catalogue. Use the media resolver.")
     })
     fun forUrl(raw: String): SiteMetadataApi {

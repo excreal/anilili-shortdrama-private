@@ -107,14 +107,6 @@ class SiteDownloadSourcesTest {
         assertEquals("https://melolo2.narto-drama.com/SANITIZED_OPAQUE_VIDEO_TOKEN", media.url)
         assertEquals("video/mp4", media.mimeType)
     }
-    @Test fun metadataOverviewAndEroticMvPosterUseTheDetailedArtwork() {
-        val series = SiteDownloadSeries(SiteDownloadProvider.EROTICMV, "m", "Movie", "banner.jpg", "https://eroticmv.com/m/",
-            emptyList(), description = "Short OG text", metadata = SiteShowMetadata(description = "Full synopsis",
-                images = listOf(SiteShowImage("poster.jpg", "video-poster"))))
-        assertEquals("Full synopsis", series.overviewText())
-        assertEquals("poster.jpg", series.posterThumbnail())
-        assertEquals("banner.jpg", series.copy(provider = SiteDownloadProvider.NARTO).posterThumbnail())
-    }
     @Test fun linkRefreshIsBoundedPerEpisodeAndDoesNotRetryDirectUrls() {
         val guard = MediaLinkRefreshGuard()
         assertTrue(guard.shouldRefresh(SiteDownloadProvider.NARTO, "episode-1"))
@@ -122,10 +114,5 @@ class SiteDownloadSourcesTest {
         assertTrue(guard.shouldRefresh(SiteDownloadProvider.NARTO, "episode-2"))
         assertFalse(guard.shouldRefresh(SiteDownloadProvider.DIRECT, "file-1"))
     }
-    @Test fun encodedMediaAndHtmlEntities() {
-        val raw = "https://cdn.test/video.m3u8?x=1&y=2"
-        assertEquals(raw, decodeEroticMedia("http://${Base64.getEncoder().encodeToString(raw.toByteArray())}.m3u8"))
-        assertEquals(raw, eroticVideoSource("""<meta content="https://cdn.test/video.m3u8?x=1&amp;y=2" property="og:video:url">"""))
-        assertEquals("https://cdn.test/a.m3u8", eroticVideoSource("""<script>{"single_video_url":"https:\/\/cdn.test\/a.m3u8"}</script>"""))
-    }
+
 }

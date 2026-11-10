@@ -19,7 +19,7 @@ internal object ArtworkRecovery {
     }
     suspend fun poster(detail: String, previous: String): String? = withContext(Dispatchers.IO) {
         val target = detail.toHttpUrlOrNull() ?: return@withContext null
-        if (target.host !in setOf("dramatip.net", "kiss18.vip", "eroticmv.com", "www.eroticmv.com", "edge.narto-drama.com", "narto-drama.com")) return@withContext null
+        if (target.host !in setOf("dramatip.net", "kiss18.vip", "edge.narto-drama.com", "narto-drama.com")) return@withContext null
         client.newCall(Request.Builder().url(target).header("User-Agent", "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36")
             .header("Referer", target.newBuilder().encodedPath("/").query(null).build().toString())
             .header("Accept", "text/html,application/xhtml+xml,*/*").header("Accept-Language", "en-US,en;q=0.9").build()).consumeCancellable { response ->

@@ -54,7 +54,7 @@ internal fun CatalogHero(items: List<CatalogItem>, images: ImageLoader, onOpen: 
                 )))
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 42.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (item.url.contains("eroticmv.com")) "MOVIE" else if (item.url.contains("kisskh.do")) "K-DRAMA" else "SHORT DRAMA", style = MaterialTheme.typography.labelMedium,
+                    Text("SHORT DRAMA", style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = .85f))
                     Text(item.title, Modifier.fillMaxWidth(.9f).padding(top = 10.dp),
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black, fontSize = 25.sp, lineHeight = 30.sp, shadow = androidx.compose.ui.graphics.Shadow(Color.Black, androidx.compose.ui.geometry.Offset(0f, 2f), 10f)),

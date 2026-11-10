@@ -18,7 +18,7 @@ internal enum class SiteDownloadProvider { DRAMATIP, KISS18, NARTO, EROTICMV, KI
 internal val SiteDownloadProvider.isShortDrama get() = this in setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO)
 /** Long-form and movie media use the original Anilili player; short dramas keep their dedicated player. */
 internal val SiteDownloadProvider.usesReferencePlayer get() = !isShortDrama
-internal val SiteDownloadProvider.contentLabel get() = when { isShortDrama -> "Short drama"; this == SiteDownloadProvider.EROTICMV -> "Movie"; this == SiteDownloadProvider.KISSKH -> "K-drama"; else -> "Video" }
+internal val SiteDownloadProvider.contentLabel get() = if (isShortDrama) "Short drama" else "Video"
 internal data class SiteDownloadEpisode(val id: String, val number: Int, val title: String, val url: String, val numberLabel: String? = null)
 internal val SiteDownloadEpisode.displayNumber get() = numberLabel ?: number.toString()
 internal data class SiteShowImage(val url: String, val role: String, val width: Int? = null, val height: Int? = null, val caption: String? = null)
@@ -42,9 +42,7 @@ internal data class SiteDownloadSeries(val provider: SiteDownloadProvider, val i
     val poster: String, val url: String, val episodes: List<SiteDownloadEpisode>, val qualities: List<String> = listOf("Best"),
     val description: String = "", val metadata: SiteShowMetadata? = null)
 internal fun SiteDownloadSeries.overviewText(): String = metadata?.description?.takeIf(String::isNotBlank) ?: description
-internal fun SiteDownloadSeries.posterThumbnail(): String = if (provider == SiteDownloadProvider.EROTICMV) {
-    metadata?.images?.firstOrNull { it.role in setOf("video-poster", "poster") }?.url?.takeIf(String::isNotBlank) ?: poster
-} else poster
+internal fun SiteDownloadSeries.posterThumbnail(): String = poster
 
 /** A stale provider URL may be refreshed once for each selected episode, never in a retry loop. */
 internal class MediaLinkRefreshGuard {
@@ -60,14 +58,13 @@ internal fun mergeDiscoveredQualities(current: SiteDownloadSeries, expectedProvi
 internal fun mergeInspectionMetadata(current: SiteDownloadSeries, expectedProvider: SiteDownloadProvider, expectedId: String,
     expectedGeneration: Int, generation: Int, metadata: SiteShowMetadata): SiteDownloadSeries =
     if (current.matchesInspection(expectedProvider, expectedId, expectedGeneration, generation)) current.copy(metadata = metadata) else current
-internal val SiteDownloadSeries.isSingleVideo get() = provider in setOf(SiteDownloadProvider.DIRECT, SiteDownloadProvider.EROTICMV)
+internal val SiteDownloadSeries.isSingleVideo get() = provider == SiteDownloadProvider.DIRECT
 internal data class DramaVariant(val url: String, val quality: String = "Original", val backupUrls: List<String> = emptyList(),
     val mimeType: String = "video/mp4", val headers: Map<String, String> = emptyMap(), val width: Int = 0, val height: Int = 0, val subtitles: List<MediaSubtitle> = emptyList())
 
 internal fun dramaHost(host: String, domain: String) = host == domain || host.endsWith(".$domain")
 internal fun siteDownloadInput(raw: String): HttpUrl {
-    val input = decodeEroticMedia(raw.trim())
-    val url = runCatching { input.toHttpUrl() }.getOrElse { throw IOException("Enter a supported HTTP(S) video or series link.") }
+    val url = runCatching { raw.trim().toHttpUrl() }.getOrElse { throw IOException("Enter a supported HTTP(S) video or series link.") }
     require(url.username.isEmpty() && url.password.isEmpty()) { "Links must not contain credentials." }
     return url
 }
@@ -76,10 +73,10 @@ internal fun siteDownloadProvider(url: HttpUrl): SiteDownloadProvider = when {
     dramaHost(url.host, "dramatip.net") -> SiteDownloadProvider.DRAMATIP
     url.host in setOf("kiss18.vip", "www.kiss18.vip") -> SiteDownloadProvider.KISS18
     url.host in setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com") -> SiteDownloadProvider.NARTO
-    dramaHost(url.host, "eroticmv.com") -> SiteDownloadProvider.EROTICMV
-    url.host in setOf("kisskh.do", "www.kisskh.do") -> SiteDownloadProvider.KISSKH
+    dramaHost(url.host, "eroticmv.com") -> throw IOException("Movie sources aren't included in this edition.")
+    url.host in setOf("kisskh.do", "www.kisskh.do") -> throw IOException("K-drama sources aren't included in this edition.")
     isDramaHls(url) || isDramaFile(url) -> SiteDownloadProvider.DIRECT
-    else -> throw IOException("Unsupported link. Use Dramatip, Kiss18, Narto Drama, EroticMV, KissKH, or a direct HLS/MP4/WebM URL.")
+    else -> throw IOException("Unsupported link. Use Dramatip, Kiss18, Narto Drama, or a direct HLS/MP4/WebM URL.")
 }
 internal fun isDramaHls(url: HttpUrl) = url.encodedPath.contains(".m3u8", true)
 internal fun isDramaFile(url: HttpUrl) = listOf(".mp4", ".m4v", ".webm").any { url.encodedPath.endsWith(it, true) } ||
@@ -144,7 +141,6 @@ internal fun cleanDramaTitle(raw: String, provider: SiteDownloadProvider): Strin
     SiteDownloadProvider.DRAMATIP -> raw.replace(Regex("(?i)(\\s+-\\s+watch (?:all\\s+\\d+\\s+episodes free|free online))?\\s*\\|\\s*dramatip\\s*$"), "").replace(Regex("(?i)\\s+(?:episode\\s+|E)\\d+$"), "")
     SiteDownloadProvider.KISS18 -> raw.removeSuffix(" | Kiss18").removeSuffix(" — Kiss18").removeSuffix(" — Watch Episodes").removeSuffix(" · Story & Episodes")
     SiteDownloadProvider.NARTO -> raw.removeSuffix(" - Free Streaming").replace(Regex(" Episode \\d+$"), "")
-    SiteDownloadProvider.EROTICMV -> raw.removePrefix("Watch ").substringBeforeLast(" - ", raw.removePrefix("Watch "))
     else -> raw
 }.trim()
 internal fun parseDramaSeries(html: String, url: HttpUrl, provider: SiteDownloadProvider, slug: String): SiteDownloadSeries {
@@ -304,21 +300,6 @@ internal fun kissPlaybackVariant(entry: JsonObject, episode: JsonObject, candida
         else -> dramaAbsolute(url, entry.dramaString("url").also { require(it.isNotBlank()) })
     }
     return DramaVariant(source, mimeType = if (format == "hls") "application/x-mpegURL" else "video/mp4")
-}
-internal fun decodeEroticMedia(raw: String): String {
-    val encoded = Regex("(?i)^https?://([A-Za-z0-9+/_=-]+)\\.m3u8/?$").matchEntire(raw.trim())?.groupValues?.get(1) ?: return raw.trim()
-    for (decoder in listOf(Base64.getDecoder(), Base64.getUrlDecoder())) {
-        val decoded = runCatching { decoder.decode(encoded).toString(Charsets.UTF_8).trim().toHttpUrl() }.getOrNull()
-        if (decoded != null && isDramaHls(decoded)) return decoded.toString()
-    }
-    return raw.trim()
-}
-internal fun eroticVideoSource(page: String): String? {
-    val doc = Jsoup.parse(page)
-    for ((selector, attr) in listOf("meta[property=og:video:url]" to "content", "video source[src]" to "src", "video[src]" to "src")) {
-        doc.selectFirst(selector)?.attr(attr)?.takeIf(String::isNotBlank)?.let { return it }
-    }
-    return dramaJsonAfter(page, Regex("\"single_video_url\"\\s*:"))?.takeIf { it.isJsonPrimitive }?.asString
 }
 internal fun chooseDramaVariant(variants: List<DramaVariant>, quality: String): DramaVariant {
     return chooseDramaVariant(variants, quality, preferHlsOnTie = true)

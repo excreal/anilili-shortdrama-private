@@ -101,7 +101,7 @@ internal fun catalogArtworkRequest(context: android.content.Context, item: Catal
                 // Dramatip explicitly marks CDN artwork no-referrer. Other sources receive
                 // only their own origin, never the old AnimePahe referral or private URL query.
                 if (detail != null && poster != null && detail.host != "dramatip.net" &&
-                    (poster.host == detail.host || detail.host == "eroticmv.com" || detail.host == "www.eroticmv.com")) {
+                    poster.host == detail.host) {
                     addHeader("Referer", detail.newBuilder().encodedPath("/").query(null).fragment(null).build().toString())
                 }
             }.build()
