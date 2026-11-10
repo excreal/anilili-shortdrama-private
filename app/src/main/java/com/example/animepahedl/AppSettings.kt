@@ -31,6 +31,6 @@ internal class AppSettings(context: Context) {
         get() = preferences.getString("output-tree", "").orEmpty()
         set(value) { preferences.edit { putString("output-tree", value) } }
     var outputFolder: String
-        get() = preferences.getString("output-folder", "Animepahe").orEmpty()
+        get() = preferences.getString("output-folder", "ShortDrama").orEmpty()
         set(value) { preferences.edit { putString("output-folder", value) } }
 }

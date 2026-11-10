@@ -38,7 +38,7 @@ internal fun diagnostics(context: Context): String {
     val info = context.packageManager.getPackageInfo(context.packageName, 0)
     val rows = Exports.all(context).values
     return buildString {
-        appendLine("AnimepaheDL diagnostic summary")
+        appendLine("Anilili ShortDrama diagnostic summary")
         appendLine("Version: ${info.versionName} (${info.longVersionCode})")
         appendLine("Android API: ${android.os.Build.VERSION.SDK_INT}")
         appendLine("ABIs: ${android.os.Build.SUPPORTED_ABIS.joinToString()}")

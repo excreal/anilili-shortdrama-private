@@ -24,7 +24,7 @@ internal object DebugTrace {
     fun event(name: String, vararg values: Pair<String, Any?>) {
         val destination = file ?: return
         val line = Gson().toJson(mapOf("time" to System.currentTimeMillis(), "event" to name) + values.associate { (key, value) -> key to if (key in setOf("reason", "summary", "message")) "redacted" else value })
-        Log.d("AnimepaheHTTP", line)
+        Log.d("AnililiShortDramaHTTP", line)
         writer.execute {
             runCatching {
                 if (destination.length() > 1_000_000) destination.writeText("")
