@@ -1,5 +1,4 @@
 <resources>
-    <string name="ui_animepahe">Animepahe</string>
     <string name="ui_available_when_the_current_request_finishes">Available when the current request finishes.</string>
     <string name="ui_cancel">Cancel</string>
     <string name="ui_change_folder">Change folder</string>
