@@ -272,7 +272,7 @@ private fun DownloaderApp(model: DownloaderViewModel, siteDownload: SiteDownload
             }
         }
     ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).hazeSource(chromeBackdrop)) {
+        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).hazeSource(chromeBackdrop)) {
         val noticeHeight = 88.dp
         Column(Modifier.fillMaxSize()) {
         Column(Modifier.heightIn(max = noticeHeight).verticalScroll(rememberScrollState())) {

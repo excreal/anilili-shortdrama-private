@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 package com.anilili.ui.watch
 
 import android.content.ComponentName
@@ -625,21 +626,22 @@ fun PlayerSurface(
                     while (cause != null && cause !is HttpDataSource.InvalidResponseCodeException) {
                         cause = cause.cause
                     }
-                    val refusedCode = (cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
-                    (cause as? HttpDataSource.InvalidResponseCodeException)?.let { refused ->
+                    val refused = cause
+                    val refusedCode = refused?.responseCode
+                    refused?.let {
                         DiagnosticsLog.event(
                             "PlayerSurface request refused " +
                                 httpFailureSummary(
-                                    responseCode = refused.responseCode,
-                                    url = refused.dataSpec.uri.toString(),
-                                    headers = refused.headerFields,
+                                    responseCode = it.responseCode,
+                                    url = it.dataSpec.uri.toString(),
+                                    headers = it.headerFields,
                                 ),
                         )
                         // A CDN that answers a refusal in JSON is telling us why in words. That is
                         // worth reading before guessing at headers: the code alone cannot separate
                         // "wrong referer" from "region blocked" from "link consumed".
                         val said = runCatching {
-                            refused.responseBody.decodeToString().trim().take(200)
+                            it.responseBody.decodeToString().trim().take(200)
                         }.getOrNull()
                         if (!said.isNullOrBlank()) {
                             DiagnosticsLog.event("PlayerSurface refusal said ${said.replace('\n', ' ')}")

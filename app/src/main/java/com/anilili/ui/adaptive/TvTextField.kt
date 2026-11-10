@@ -12,6 +12,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import androidx.appcompat.widget.AppCompatEditText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -165,8 +166,8 @@ fun TvNativeTextField(
                             event.action == KeyEvent.ACTION_DOWN &&
                                 keyCode == KeyEvent.KEYCODE_DPAD_RIGHT &&
                                 currentOnMoveRight != null &&
-                                selectionStart == text.length &&
-                                selectionEnd == text.length -> {
+                                selectionStart == (text?.length ?: 0) &&
+                                selectionEnd == (text?.length ?: 0) -> {
                                 // A native EditText consumes Right to move its cursor before
                                 // Compose can run spatial focus search. Screens with a control to
                                 // the field's right can provide an escape once the caret is at the
@@ -290,7 +291,7 @@ private class NativeTvTextWatcher(
 private fun beginNativeTvEditing(editor: SafeTvEditText) {
     editor.requestKeyboardOnFocus()
     editor.requestFocus()
-    editor.setSelection(editor.text.length)
+    editor.setSelection(editor.text?.length ?: 0)
     val manager = editor.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
     if (manager == null) {
         DiagnosticsLog.event("TvNativeTextField no InputMethodManager")
@@ -410,7 +411,7 @@ private val TV_SELECT_KEYS = setOf(
 private const val KEYBOARD_FOCUS_WAIT_MS = 1_500L
 
 /**
- * An [EditText] that guards against Compose focus search race conditions on Fire TV / Android 9.
+ * An [AppCompatEditText] that guards against Compose focus search race conditions on Fire TV / Android 9.
  *
  * When an on-screen keyboard (IME) opens or requests input connection, Android's native
  * [TextView.onCreateInputConnection] calls [focusSearch]. If Compose focus state is currently
@@ -418,7 +419,7 @@ private const val KEYBOARD_FOCUS_WAIT_MS = 1_500L
  */
 private const val KEYBOARD_RETRY_DELAY_MS = 250L
 
-private class SafeTvEditText(context: Context) : EditText(context) {
+private class SafeTvEditText(context: Context) : AppCompatEditText(context) {
     /**
      * True only while the IME is building an input connection.
      *

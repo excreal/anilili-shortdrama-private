@@ -39,12 +39,12 @@ internal fun loadSubtitleText(context: Context, subtitle: SubtitleItem): String?
             ).forEach { (key, value) -> builder.header(key, value) }
             AppGraph.httpClient.newCall(builder.build()).execute().use { response ->
                 if (!response.isSuccessful) throw IOException("Subtitle HTTP ${response.code}")
-                val length = response.body?.contentLength()?.takeIf { it >= 0 }
+                val body = response.body
+                val length = body.contentLength().takeIf { it >= 0 }
                 if (length != null && length > MAX_SUBTITLE_BYTES) {
                     throw IOException("That subtitle file is larger than 8 MB.")
                 }
-                val bytes = response.body?.byteStream()?.use { it.readSubtitleBytes() }
-                    ?: throw IOException("The server returned an empty subtitle file.")
+                val bytes = body.byteStream().use { it.readSubtitleBytes() }
                 decodeSubtitleBytes(bytes, languageHint = subtitle.language)
             }
         }
@@ -73,7 +73,7 @@ data class SubtitleCueTime(
  * with a broken cue in it is still perfectly good for choosing a line from.
  */
 fun parseSubtitleCueTimes(content: String): List<SubtitleCueTime> {
-    val text = content.removePrefix("﻿")
+    val text = content.removePrefix("\uFEFF")
     val cues = if (text.lineSequence().any { it.trimStart().startsWith("Dialogue:", ignoreCase = true) }) {
         parseAssCueTimes(text)
     } else {

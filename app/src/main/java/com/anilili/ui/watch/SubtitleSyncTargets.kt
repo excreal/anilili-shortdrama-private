@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 package com.anilili.ui.watch
 
 import androidx.media3.common.C
@@ -6,7 +7,7 @@ import androidx.media3.common.util.UnstableApi
 import com.anilili.data.model.SubtitleItem
 
 /** The language of the text track currently playing, or null when subtitles are off. */
-@OptIn(UnstableApi::class)
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 internal fun Player.selectedTextLanguage(): String? = currentTracks.groups
     .firstOrNull { it.type == C.TRACK_TYPE_TEXT && it.isSelected }
     ?.let { group -> (0 until group.length).firstOrNull(group::isTrackSelected)?.let(group::getTrackFormat) }
