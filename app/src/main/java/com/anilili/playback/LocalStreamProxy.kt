@@ -212,7 +212,7 @@ internal object LocalStreamProxy {
                 try {
                     accepted.soTimeout = SOCKET_TIMEOUT_MS
                     val output = ProgressOutputStream(BufferedOutputStream(accepted.getOutputStream()))
-                    watchdog = writeWatchdogs.scheduleAtFixedRate(
+                    watchdog = writeWatchdogs.scheduleWithFixedDelay(
                         {
                             if (System.nanoTime() - output.lastWriteAt.get() >= WRITE_STALL_TIMEOUT_NS) {
                                 runCatching { accepted.close() }
