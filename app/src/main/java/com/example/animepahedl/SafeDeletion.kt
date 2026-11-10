@@ -35,60 +35,63 @@ internal fun deleteOutputCompanions(context: Context, record: ExportRecord) {
     val location = record.outputLocation("mp4")
     val tree = record.tree.takeIf(String::isNotBlank)?.let(Uri::parse)
     if (tree != null) {
-        runCatching {
-            val rootId = DocumentsContract.getTreeDocumentId(tree)
-            val root = DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
-            val rootName = context.contentResolver.query(root, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { if (it.moveToFirst()) it.getString(0) else null }
-            val folderIsRoot = rootName.equals(location.showFolder, ignoreCase = true)
-            // A selected tree can itself be the show folder. Never delete the user's granted root.
-            val folder = if (folderIsRoot) root else {
-                val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, rootId)
-                context.contentResolver.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)
-                    ?.use { cursor ->
-                        var found: Uri? = null
-                        while (cursor.moveToNext()) if (cursor.getString(1).equals(location.showFolder, ignoreCase = true) &&
-                            cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
-                            found = DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0)); break
-                        }
-                        found
-                    } ?: return@runCatching
-            }
-            val folderId = DocumentsContract.getDocumentId(folder)
-            val contents = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folderId)
-            context.contentResolver.query(contents, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { cursor ->
-                val sidecars = mutableListOf<Uri>()
-                var hasOtherFiles = false
-                while (cursor.moveToNext()) {
-                    val id = cursor.getString(0)
-                    if (isOutputSubtitleSidecar(cursor.getString(1), location.fileName)) sidecars += DocumentsContract.buildDocumentUriUsingTree(tree, id)
-                    else hasOtherFiles = true
+        val resolver = context.contentResolver
+        fun query(uri: Uri, projection: Array<String>) = resolver.query(uri, projection, null, null, null)
+            ?: throw IOException("Could not inspect the selected download folder. Restore folder access and tap Delete again.")
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
+        val root = DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
+        val rootName = query(root, arrayOf(OpenableColumns.DISPLAY_NAME)).use {
+            if (it.moveToFirst()) it.getString(0) else throw IOException("The selected download folder is no longer available.")
+        }
+        val folderIsRoot = rootName.equals(location.showFolder, ignoreCase = true)
+        // A selected tree can itself be the show folder. Never delete the user's granted root.
+        val folder = if (folderIsRoot) root else {
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, rootId)
+            query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE)).use { cursor ->
+                var found: Uri? = null
+                while (cursor.moveToNext()) if (cursor.getString(1).equals(location.showFolder, ignoreCase = true) &&
+                    cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    found = DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0)); break
                 }
-                sidecars.forEach { runCatching { DocumentsContract.deleteDocument(context.contentResolver, it) } }
-                if (!hasOtherFiles && !folderIsRoot) runCatching { DocumentsContract.deleteDocument(context.contentResolver, folder) }
+                found
             }
+        } ?: return
+        val folderId = DocumentsContract.getDocumentId(folder)
+        val contents = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folderId)
+        query(contents, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME)).use { cursor ->
+            val sidecars = mutableListOf<Uri>()
+            var hasOtherFiles = false
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(0)
+                if (isOutputSubtitleSidecar(cursor.getString(1), location.fileName)) sidecars += DocumentsContract.buildDocumentUriUsingTree(tree, id)
+                else hasOtherFiles = true
+            }
+            sidecars.forEach { deleteOwnedMedia(context, it) }
+            if (!hasOtherFiles && !folderIsRoot) deleteOwnedMedia(context, folder)
         }
     } else {
         val relativePath = listOf(Environment.DIRECTORY_DOWNLOADS, record.folder, location.showFolder)
             .filter(String::isNotBlank).joinToString("/").trimEnd('/') + "/"
-        runCatching {
-            val files = MediaStore.Files.getContentUri("external")
-            val sidecars = mutableListOf<Uri>()
-            context.contentResolver.query(files,
-                arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
-                "${MediaStore.MediaColumns.RELATIVE_PATH}=?", arrayOf(relativePath), null)?.use { cursor ->
-                while (cursor.moveToNext()) if (isOutputSubtitleSidecar(cursor.getString(1), location.fileName)) {
-                    sidecars += ContentUris.withAppendedId(files, cursor.getLong(0))
-                }
+        val files = MediaStore.Files.getContentUri("external")
+        val sidecars = mutableListOf<Uri>()
+        val cursor = context.contentResolver.query(files,
+            arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
+            "${MediaStore.MediaColumns.RELATIVE_PATH}=?", arrayOf(relativePath), null)
+            ?: throw IOException("Could not inspect the output folder. Restore storage access and tap Delete again.")
+        cursor.use {
+            while (cursor.moveToNext()) if (isOutputSubtitleSidecar(cursor.getString(1), location.fileName)) {
+                sidecars += ContentUris.withAppendedId(files, cursor.getLong(0))
             }
-            sidecars.forEach { context.contentResolver.delete(it, null, null) }
         }
-        runCatching {
-            val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).canonicalFile
-            val folder = File(downloads, listOf(record.folder, location.showFolder).filter(String::isNotBlank).joinToString("/")).canonicalFile
-            if (folder.toPath().startsWith(downloads.toPath()) && folder.isDirectory && folder.list()?.isEmpty() == true) folder.delete()
+        sidecars.forEach { deleteOwnedMedia(context, it) }
+        val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).canonicalFile
+        val folder = File(downloads, listOf(record.folder, location.showFolder).filter(String::isNotBlank).joinToString("/")).canonicalFile
+        if (!folder.toPath().startsWith(downloads.toPath())) throw IOException("The output folder is outside Downloads.")
+        if (folder.isDirectory) {
+            val children = folder.list() ?: throw IOException("Could not inspect the output folder for cleanup.")
+            if (children.isEmpty() && !folder.delete()) throw IOException("Could not remove the empty show folder.")
         }
     }
 }

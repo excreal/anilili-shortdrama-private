@@ -56,7 +56,7 @@ internal object ProviderSubtitles {
         if (!target.isFile || target.length() == 0L) {
             val request = providerSubtitleRequest(track)
             val bytes = fetchProviderSubtitleBytes(client, request, track.label)
-            val content = normalizeKisskhSubtitles(bytes.toString(Charsets.UTF_8), Uri.parse(track.url).path.orEmpty().substringAfterLast('.'))
+            val content = normalizeProviderSubtitle(bytes.toString(Charsets.UTF_8), Uri.parse(track.url).path.orEmpty().substringAfterLast('.'))
             coroutineContext.ensureActive()
             val temporary = File(directory, "$hash.${java.util.UUID.randomUUID()}.tmp")
             try { temporary.writeText(content); check(temporary.renameTo(target)) { "Could not save subtitles." } }
@@ -89,8 +89,8 @@ internal suspend fun fetchProviderSubtitleBytes(client: OkHttpClient, request: R
     return bytes
 }
 
-/** Match the website's SRT-to-VTT, legacy per-cue decoding and top-positioned cue rules. */
-internal fun normalizeKisskhSubtitles(input: String, extension: String): String {
+/** Convert provider captions to VTT, tolerating legacy encrypted cues and cue positioning. */
+internal fun normalizeProviderSubtitle(input: String, extension: String): String {
     val raw = input.removePrefix("\uFEFF").replace("\r\n", "\n").replace('\r', '\n').trim()
     require(!raw.startsWith('<') && raw.contains("-->")) { "The source returned an invalid subtitle file." }
     if (raw.startsWith("WEBVTT") && extension.equals("vtt", true)) return raw + "\n"

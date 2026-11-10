@@ -109,7 +109,7 @@ internal fun ProviderSubtitleSettings() {
     val username by com.anilili.data.auth.OpenSubtitlesAuthManager.username.collectAsState()
     val scope = rememberCoroutineScope()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 12.dp)) {
-        Text("KissKH subtitles", style = MaterialTheme.typography.titleMedium)
+        Text("Provider subtitles", style = MaterialTheme.typography.titleMedium)
         Text("Available languages appear in the player's captions menu. Subtitles are saved with downloaded episodes for offline playback.")
         Text("Use the captions menu to import a file, adjust timing or change subtitle appearance.")
         HorizontalDivider()

@@ -530,7 +530,7 @@ internal fun SettingsScreen(model: DownloaderViewModel, onAbout: () -> Unit, sit
                         }
                     }
                 }
-                "content" -> { item(contentType = "settings-heading") { Text("Short dramas, K-dramas and movies", style = MaterialTheme.typography.titleMedium) }; item(contentType = "settings-description") { Text("Choose a source from Home or Browse to explore its catalog.", Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                "content" -> { item(contentType = "settings-heading") { Text("Short dramas", style = MaterialTheme.typography.titleMedium) }; item(contentType = "settings-description") { Text("Choose a short drama source from Home or Browse to explore its catalog.", Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 "data" -> {
                     item(contentType = "settings-description") { Text("Temporary storage: ${Formatter.formatShortFileSize(context, model.temporaryBytes)}", Modifier.padding(vertical = 12.dp)) }
                     item(contentType = "settings-row") { SettingsRow(AppIcon.Info, "Export diagnostics", "Preview a report without titles, paths, or cookies") { diagnosticPreview = diagnostics(context) } }

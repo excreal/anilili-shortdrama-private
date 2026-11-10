@@ -121,12 +121,13 @@ def probe_candidate(candidate: dict, page_url: str, output: Path, seconds: float
     result_file = output / f"episode-{candidate['field']}.mkv"
     referer = page_url.replace("'", "%27")
     page = urllib.parse.urlsplit(page_url)
-    origin = urllib.parse.urlunsplit((page.scheme, page.netloc, "/", "", "")).replace("'", "%27")
     command = [
         ffmpeg,
         "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
         "-user_agent", APP_USER_AGENT,
-        "-headers", f"Referer: {referer}\r\nOrigin: {origin}\r\n",
+        # Match SiteDownloadRepository.resolveChoices(): the request includes the page
+        # Referer but does not invent an Origin header or forward provider cookies to CDNs.
+        "-headers", f"Referer: {referer}\r\n",
         "-protocol_whitelist", "http,https,tcp,tls,crypto,data",
         "-i", candidate["url"],
         "-t", str(seconds),
