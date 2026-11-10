@@ -1,0 +1,2 @@
+# Bundled media fixtures are binary data, not source code relationships.
+app/src/androidTest/assets/
