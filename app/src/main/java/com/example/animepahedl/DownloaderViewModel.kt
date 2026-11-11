@@ -142,7 +142,13 @@ class DownloaderViewModel(application: Application, private val repository: Anim
     private var downloadsVisible by mutableStateOf(false)
     var showDownloads: Boolean
         get() = downloadsVisible
-        set(value) { downloadsVisible = value; if (value) leaveExplore() }
+        set(value) {
+            downloadsVisible = value
+            if (value) {
+                leaveExplore()
+                refreshSavedFiles()
+            }
+        }
     private var settingsVisible by mutableStateOf(false)
     var showSettings: Boolean
         get() = settingsVisible

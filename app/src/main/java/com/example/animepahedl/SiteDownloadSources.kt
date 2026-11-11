@@ -238,8 +238,8 @@ internal fun parseNartoVariants(body: String, url: HttpUrl, number: Int): List<D
         ?: throw IOException("Requested Narto episode is unavailable.")
     return listOf("direct_play_url", "play_url", "schema_content_url").mapNotNull { key ->
         val raw = episode.dramaString(key).takeIf(String::isNotBlank) ?: return@mapNotNull null
-        val media = dramaAbsolute(url, raw)
-        val target = media.toHttpUrl()
+        val target = runCatching { dramaAbsolute(url, raw).toHttpUrl() }.getOrNull() ?: return@mapNotNull null
+        val media = target.toString()
         if (target.scheme != "https") return@mapNotNull null
         val hls = isDramaHls(target) || (key == "play_url" && episode.dramaString("browser_prefetch_mode") == "hls") ||
             (key == "direct_play_url" && episode.get("direct_play_is_hls")?.toString() == "true")

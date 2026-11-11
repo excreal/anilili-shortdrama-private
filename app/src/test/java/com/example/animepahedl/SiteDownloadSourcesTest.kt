@@ -100,6 +100,14 @@ class SiteDownloadSourcesTest {
         assertEquals("https://stream.narto-drama.com/e/m/SANITIZED_SIGNED_STREAM?mh=1", media.url)
         assertEquals("application/x-mpegURL", media.mimeType)
     }
+    @Test fun nartoFixtureExposesBothPlayableUrlsAndMarksOpaqueStreamAsHls() {
+        val episodes = javaClass.getResource("/narto/episode-actual-shape.json")!!.readText().trim()
+        val base = "https://narto-drama.com/detail/watch/story/1".toHttpUrl()
+        val parsed = parseNartoVariants("const episodeItemsRaw = $episodes;", base, 1)
+        assertEquals(1, parsed.size)
+        assertTrue(parsed.single().url.startsWith("https://stream.narto-drama.com/"))
+        assertEquals("application/x-mpegURL", parsed.single().mimeType)
+    }
     @Test fun nartoDetectsFlashSaleVideoWhenPrefetchModeIsNone() {
         val body = "const episodeItemsRaw = " + javaClass.getResource("/narto/flash-sale-episode-actual-shape.json")!!.readText().trim() + ";"
         val base = "https://edge.narto-drama.com/detail/watch/1-flash-sale/1?lang=en-US".toHttpUrl()

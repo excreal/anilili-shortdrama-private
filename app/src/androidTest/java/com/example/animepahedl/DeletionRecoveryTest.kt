@@ -45,6 +45,19 @@ class DeletionRecoveryTest {
             }
         } finally { ids.values.forEach { Exports.remove(app, it); DownloadStore.operation(it, "delete", null) }; DownloadStore.flush() }
     }
+    @Test fun deletingAlreadyMissingSavedMediaClearsItsDownloadRow() = runBlocking {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        DownloadStore.awaitReady()
+        val id = "already-missing:${System.nanoTime()}"
+        Exports.put(app, id, ExportRecord("Missing saved fixture", "", "", uri = "content://com.example.animepahedl.test.deletion/missing-${System.nanoTime()}"))
+        DownloadStore.flush()
+        try {
+            val repository = AndroidDownloadRepository(app, AnimeRepository())
+            val result = withContext(Dispatchers.Main) { repository.delete(id) }
+            assertTrue(result.message.orEmpty(), result.succeeded)
+            assertFalse(Exports.all(app).containsKey(id))
+        } finally { Exports.remove(app, id); DownloadStore.operation(id, "delete", null); DownloadStore.flush() }
+    }
     @Test fun legacyImportIsRepeatableAndNeverOverwritesSavedDestinations() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         withContext(Dispatchers.IO) {

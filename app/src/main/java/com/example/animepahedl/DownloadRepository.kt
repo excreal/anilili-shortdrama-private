@@ -148,8 +148,12 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
                     listOfNotNull(record?.uri?.takeIf { removePublished && it.isNotBlank() }, record?.pendingUri?.takeIf { it.isNotBlank() && it != record.uri }).distinct()
                         .forEach { deleteOwnedMedia(app, (it).toUri()) }
                     if (removePublished && record != null) {
-                        ProviderSubtitles.deleteUnreferenced(id, record.media?.subtitles.orEmpty())
-                        deleteOutputCompanions(app, record)
+                        // These are optional cleanup. A provider error here must not retain a
+                        // dead Downloads row after the primary video was successfully deleted.
+                        runCatching { ProviderSubtitles.deleteUnreferenced(id, record.media?.subtitles.orEmpty()) }
+                            .onFailure { DebugTrace.event("delete_subtitles_cleanup_failed", "id" to id, "reason" to it.toString()) }
+                        runCatching { deleteOutputCompanions(app, record) }
+                            .onFailure { DebugTrace.event("delete_folder_cleanup_failed", "id" to id, "reason" to it.toString()) }
                     }
                     if (id.startsWith("direct:")) {
                         val number = id.removePrefix("direct:")
@@ -158,10 +162,15 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
                     }
                 }
                 if (!id.startsWith("direct:")) {
-                    // Media3 removes asynchronously; retain the tombstone until the index confirms absence.
-                    DownloadService.sendRemoveDownload(app, OfflineDownloadService::class.java, id, true)
-                    kotlinx.coroutines.withTimeout(30_000) {
-                        while (withContext(Dispatchers.IO) { OfflineDownloads.manager(app).downloadIndex.getDownload(id) != null }) delay(100)
+                    // Saved rows often outlive their Media3 cache entry. Only wait for asynchronous
+                    // engine removal when the index still contains this download.
+                    val manager = OfflineDownloads.manager(app)
+                    val indexed = withContext(Dispatchers.IO) { manager.downloadIndex.getDownload(id) != null }
+                    if (indexed) {
+                        DownloadService.sendRemoveDownload(app, OfflineDownloadService::class.java, id, true)
+                        kotlinx.coroutines.withTimeout(30_000) {
+                            while (withContext(Dispatchers.IO) { manager.downloadIndex.getDownload(id) != null }) delay(100)
+                        }
                     }
                 }
                 app.getSharedPreferences("media-verification", Context.MODE_PRIVATE).edit { remove(id) }

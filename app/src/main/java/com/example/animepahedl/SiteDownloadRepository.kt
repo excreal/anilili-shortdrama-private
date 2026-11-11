@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
 internal class SiteDownloadRepository(
     private val client: OkHttpClient = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build(),
-    private val userAgent: String = "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+    private val userAgent: String = AnimeNetwork.userAgent,
     private val cookieHeader: ((String) -> String)? = null,
     // Apply this edition's provider boundary even when a caller constructs the repository directly.
     private val allowedProviders: Set<SiteDownloadProvider> = ShortDramaCatalogConfig.supportedProviders
