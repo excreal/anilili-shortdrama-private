@@ -118,6 +118,12 @@ class SiteDownloadSourcesTest {
         assertEquals(gateway, selected.url)
         assertNotEquals(redirected, selected.url)
     }
+    @Test fun nartoMediaRequestsIncludeWildcardAcceptHeader() {
+        val episode = "https://edge.narto-drama.com/detail/watch/story/1"
+        val media = ResolvedMedia("https://vigloo-stream.narto-drama.com/opaque", "Best", "und",
+            mapOf("Referer" to episode), mimeType = "application/x-mpegURL")
+        assertEquals("*/*", mediaRequestHeaders(media)["Accept"])
+    }
     @Test fun nartoFixtureExposesBothPlayableUrlsAndMarksOpaqueStreamAsHls() {
         val episodes = javaClass.getResource("/narto/episode-actual-shape.json")!!.readText().trim()
         val base = "https://narto-drama.com/detail/watch/story/1".toHttpUrl()

@@ -16,6 +16,8 @@ internal fun mediaRequestHeaders(media: ResolvedMedia, target: String = media.ur
     val credentialsAllowed = destination.host == origin.host && destination.isHttps == origin.isHttps && destination.port == origin.port
     return buildMap {
         put("User-Agent", AnimeNetwork.userAgent)
+        // Match the browser and FFmpeg request profile used by Narto's HLS gateway.
+        put("Accept", "*/*")
         media.headers.orEmpty().forEach { (name, value) ->
             if (name.lowercase() in setOf("host", "connection", "content-length", "range")) return@forEach
             if (!credentialsAllowed && name.lowercase() in setOf("cookie", "authorization", "proxy-authorization")) return@forEach
@@ -54,6 +56,7 @@ internal object MediaRequests {
             DebugTrace.event("media_http_response", "request_url" to request.url.toString(),
                 "response_url" to response.request.url.toString(), "status" to response.code,
                 "message" to response.message, "headers" to response.headers.toMultimap(),
+                "error_body" to if (!response.isSuccessful) runCatching { response.peekBody(64 * 1024).string() }.getOrNull() else null,
                 "redirect_location" to response.header("Location"),
                 "duration_ms" to (System.nanoTime() - started) / 1_000_000)
             response
