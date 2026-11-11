@@ -18,8 +18,8 @@ android {
         applicationId = "com.anilili.shortdrama"
         minSdk = 35
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.2.12"
+        versionCode = 13
+        versionName = "1.2.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["listener"] = "com.example.animepahedl.ThreadTraceListener"

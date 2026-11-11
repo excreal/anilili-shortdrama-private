@@ -236,7 +236,10 @@ internal fun parseNartoVariants(body: String, url: HttpUrl, number: Int): List<D
         ?: throw IOException("Narto episode metadata is missing.")
     val episode = items.firstOrNull { it.isJsonObject && it.asJsonObject.dramaInt("route_episode_number") == number }?.asJsonObject
         ?: throw IOException("Requested Narto episode is unavailable.")
-    return listOf("direct_play_url", "play_url", "schema_content_url").mapNotNull { key ->
+    // Narto's direct_play_url can be a legacy Vigloo origin that returns HTTP 410
+    // while play_url still points to the current, playable HLS stream. Keep every
+    // distinct source, but try the browser's active source before that legacy URL.
+    return listOf("play_url", "schema_content_url", "direct_play_url").mapNotNull { key ->
         val raw = episode.dramaString(key).takeIf(String::isNotBlank) ?: return@mapNotNull null
         val target = runCatching { dramaAbsolute(url, raw).toHttpUrl() }.getOrNull() ?: return@mapNotNull null
         val media = target.toString()
