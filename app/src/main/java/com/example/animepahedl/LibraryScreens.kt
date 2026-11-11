@@ -294,7 +294,8 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                             row.showTitle.ifBlank { parts.first() } else "Episode ${row.episodeNumber.ifBlank { parts.getOrNull(1)?.removePrefix("Episode ").orEmpty() }}") +
                             row.audioCode?.takeIf { it.isNotBlank() && it != "und" }?.let { " · ${audioTag(it)}" }.orEmpty(),
                         subtitle = (row.quality ?: parts.getOrNull(2).orEmpty()).takeUnless { it in setOf("Original", "Best") }.orEmpty(), artworkUrl = row.thumbnail,
-                        status = listOfNotNull(if (watched) "Watched" else resumeLabel, if (row.complete) "In Downloads folder" else friendlyDownloadStatus(row.status),
+                        status = listOfNotNull(if (watched) "Watched" else resumeLabel,
+                            savedFileLocationStatus(row) ?: friendlyDownloadStatus(row.status),
                             row.bytes.takeIf { it > 0 }?.let { Formatter.formatShortFileSize(context, it) + if (row.totalBytes > 0 && !row.complete) " / ${Formatter.formatShortFileSize(context, row.totalBytes)}" else "" },
                             row.percent.takeIf { it >= 0 && !row.complete }?.let { "${it.toInt()}%" }).joinToString(" · "),
                         playable = row.complete, failed = row.failed, watched = watched,

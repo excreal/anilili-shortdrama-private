@@ -23,9 +23,18 @@ internal fun isOutputSubtitleSidecar(candidate: String, mediaFileName: String): 
 internal fun deleteOwnedMedia(context: Context, uri: Uri) {
     val resolver = context.contentResolver
     fun absent(): Boolean = try {
-        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-            ?.use { !it.moveToFirst() } ?: false
+        val cursor = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        if (cursor != null) cursor.use { !it.moveToFirst() }
+        else {
+            // Some SAF/MediaStore providers return null after an external delete.
+            // Only FileNotFoundException confirms this; permission failures must
+            // leave the row intact so the user can restore folder access.
+            resolver.openAssetFileDescriptor(uri, "r")?.close()
+            false
+        }
     } catch (_: java.io.FileNotFoundException) { true }
+      catch (_: SecurityException) { false }
+      catch (_: Exception) { false }
     if (absent()) return
     val deleted = try {
         if (DocumentsContract.isDocumentUri(context, uri)) DocumentsContract.deleteDocument(resolver, uri)

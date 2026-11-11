@@ -26,6 +26,21 @@ internal interface DownloadRepository {
     suspend fun enqueue(identity: DownloadIdentity, media: ResolvedMedia, previous: ExportRecord? = null): String
 }
 
+/** Forget a saved-file record without touching media, including clearing any failed-delete tombstone. */
+internal suspend fun forgetSavedDownloadRecord(context: Context, id: String) {
+    DownloadStore.awaitReady()
+    Exports.withItemLock(id) {
+        val record = Exports.all(context)[id] ?: return@withItemLock
+        require(record.uri.isNotBlank()) { "Only saved records can be removed without deleting media" }
+        require(DownloadStore.operations("delete")[id]?.isBlank() != true) { "Deletion in progress" }
+        Exports.remove(context, id)
+        DownloadStore.operation(id, "delete", null)
+        DownloadStore.operation(id, "delete-keep-file", null)
+        if (id.startsWith("direct:")) DownloadStore.operation(id.removePrefix("direct:"), "direct", null)
+        DownloadStore.flush()
+    }
+}
+
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal class AndroidDownloadRepository(private val app: Context, private val network: AnimeRepository) : DownloadRepository {
     private val settings = AppSettings(app)

@@ -108,6 +108,12 @@ class SiteDownloadSourcesTest {
         assertTrue(parsed.single().url.startsWith("https://stream.narto-drama.com/"))
         assertEquals("application/x-mpegURL", parsed.single().mimeType)
     }
+    @Test fun nartoKeepsHlsTypeWhenDirectAndBrowserFieldsShareUrl() {
+        val body = """const episodeItemsRaw = [{"route_episode_number":1,"direct_play_url":"https://stream.narto-drama.com/opaque","direct_play_is_hls":false,"play_url":"https://stream.narto-drama.com/opaque","browser_prefetch_mode":"hls"}];"""
+        val parsed = parseNartoVariants(body, "https://narto-drama.com/detail/watch/story/1".toHttpUrl(), 1)
+        assertEquals(1, parsed.size)
+        assertEquals("application/x-mpegURL", parsed.single().mimeType)
+    }
     @Test fun nartoDetectsFlashSaleVideoWhenPrefetchModeIsNone() {
         val body = "const episodeItemsRaw = " + javaClass.getResource("/narto/flash-sale-episode-actual-shape.json")!!.readText().trim() + ";"
         val base = "https://edge.narto-drama.com/detail/watch/1-flash-sale/1?lang=en-US".toHttpUrl()

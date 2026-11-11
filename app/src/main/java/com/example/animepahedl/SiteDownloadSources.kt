@@ -252,7 +252,11 @@ internal fun parseNartoVariants(body: String, url: HttpUrl, number: Int): List<D
             else -> "video/mp4"
         }
         DramaVariant(media, mimeType = mime)
-    }.distinctBy { it.url }.also { if (it.isEmpty()) throw IOException("Narto returned no supported media source.") }
+    }.groupBy { it.url }.values.map { candidates ->
+        // The same opaque URL may be advertised in both the direct and browser
+        // fields. Keep the explicit HLS classification if either field provides it.
+        candidates.firstOrNull { it.mimeType == "application/x-mpegURL" } ?: candidates.first()
+    }.also { if (it.isEmpty()) throw IOException("Narto returned no supported media source.") }
 }
 internal fun kissVideoObject(value: JsonElement): Sequence<JsonObject> = sequence {
     when {

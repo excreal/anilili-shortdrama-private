@@ -37,6 +37,10 @@ internal fun RemoteDramaPlayer(series: SiteDownloadSeries, quality: String, onCl
     // A failed local copy is bypassed only for this playback session.
     val onlineOnly = remember(series.provider, series.id) { mutableSetOf<Int>() }
     val localPlaying = remember(series.provider, series.id) { mutableSetOf<Int>() }
+    // Narto publishes several signed playback URLs. Try the next candidate after
+    // an actual decoder/network failure instead of retrying the same dead URL.
+    val nartoSourceIndex = remember(series.provider, series.id) { mutableMapOf<Int, Int>() }
+    val nartoSourceCounts = remember(series.provider, series.id) { mutableMapOf<Int, Int>() }
     val refreshedLinks = remember(series.provider, series.id) { MediaLinkRefreshGuard() }
     val episodes = remember(series) { series.episodes.map {
         DramaPlayerEpisode(it.id, it.url, if (series.isSingleVideo) series.title else "Episode ${it.displayNumber}")
@@ -47,7 +51,15 @@ internal fun RemoteDramaPlayer(series: SiteDownloadSeries, quality: String, onCl
             onPlaybackFailure = { index ->
                 when {
                     localPlaying.remove(index) -> { onlineOnly.add(index); true }
-                    refreshedLinks.shouldRefresh(series.provider, series.episodes.getOrNull(index)?.id.orEmpty()) -> true
+                    series.provider == SiteDownloadProvider.NARTO &&
+                        (nartoSourceIndex[index] ?: 0) + 1 < (nartoSourceCounts[index] ?: 0) -> {
+                        nartoSourceIndex[index] = (nartoSourceIndex[index] ?: 0) + 1
+                        true
+                    }
+                    refreshedLinks.shouldRefresh(series.provider, series.episodes.getOrNull(index)?.id.orEmpty()) -> {
+                        nartoSourceIndex.remove(index)
+                        true
+                    }
                     else -> false
                 }
             },
@@ -76,7 +88,15 @@ internal fun RemoteDramaPlayer(series: SiteDownloadSeries, quality: String, onCl
                     DefaultMediaSourceFactory(app).createMediaSource(MediaItem.fromUri(local))
                 } else {
                 localPlaying.remove(index)
-                val media = cookies.applyTo(repository.resolve(episode.url, quality, cookies.headerFor(episode.url)))
+                val media = if (series.provider == SiteDownloadProvider.NARTO) {
+                    val options = repository.resolveChoices(episode.url, cookies.headerFor(episode.url))
+                    require(options.isNotEmpty()) { "This episode has no playable stream." }
+                    nartoSourceCounts[index] = options.size
+                    val candidate = cookies.applyTo(options[(nartoSourceIndex[index] ?: 0).coerceIn(options.indices)])
+                    // Opaque Narto URLs may redirect to HLS; detect the actual media
+                    // type and reject HTML/error pages before passing them to ExoPlayer.
+                    MediaRequests.available(candidate, cookies::headerFor)
+                } else cookies.applyTo(repository.resolve(episode.url, quality, cookies.headerFor(episode.url)))
                 val factory = OkHttpDataSource.Factory(MediaRequests.client(media, cookies::headerFor))
                     .setDefaultRequestProperties(mediaRequestHeaders(media))
                 val item = MediaItem.Builder().setUri(media.url)

@@ -74,4 +74,10 @@ internal fun classifyFailure(message: String): FailureReason = when {
     else -> FailureReason.UNKNOWN
 }
 
+internal fun savedFileLocationStatus(row: DownloadRow): String? = if (!row.complete) null else when (row.failure) {
+    FailureReason.DELETION -> "Delete failed"
+    FailureReason.FOLDER_ACCESS -> "Folder access needed"
+    else -> "In Downloads folder"
+}
+
 internal data class PreparationRecord(val anime: Anime, val episodes: List<Episode>, val quality: String, val audio: String)

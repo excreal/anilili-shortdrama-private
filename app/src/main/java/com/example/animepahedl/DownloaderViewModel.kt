@@ -507,12 +507,7 @@ class DownloaderViewModel(application: Application, private val repository: Anim
         downloadNotice = "Priority saved. Other HLS transfers are paused; resume them when ready. Direct files are managed by Android."
     }
     fun forgetMissing(id: String) = runDownloadAction(id) {
-        Exports.withItemLock(id) {
-            val record = Exports.all(app)[id] ?: return@withItemLock
-            require(record.uri.isNotBlank()) { "Only saved records can be removed without deleting media" }
-            Exports.remove(app, id)
-            DownloadStore.flush()
-        }
+        forgetSavedDownloadRecord(app, id)
         refreshDownloads()
     }
     fun relink(id: String, uri: Uri) = runDownloadAction(id) {

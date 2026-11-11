@@ -58,6 +58,60 @@ class DeletionRecoveryTest {
             assertFalse(Exports.all(app).containsKey(id))
         } finally { Exports.remove(app, id); DownloadStore.operation(id, "delete", null); DownloadStore.flush() }
     }
+    @Test fun externallyDeletedFileWithNullCursorIsReconciledAndCanBeDeleted() = runBlocking {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        DownloadStore.awaitReady()
+        val id = "removed-outside-app:${System.nanoTime()}"
+        val record = ExportRecord("Externally removed video", "", "",
+            uri = "content://com.example.animepahedl.test.deletion/nullcursor-${System.nanoTime()}")
+        Exports.put(app, id, record)
+        DownloadStore.flush()
+        try {
+            assertEquals(setOf(id), missingSavedFiles(app, mapOf(id to record)).keys)
+            val outcome = AndroidDownloadRepository(app, AnimeRepository()).delete(id)
+            assertTrue(outcome.message.orEmpty(), outcome.succeeded)
+            assertFalse(Exports.all(app).containsKey(id))
+        } finally {
+            Exports.remove(app, id)
+            DownloadStore.operation(id, "delete", null)
+            DownloadStore.flush()
+        }
+    }
+
+    @Test fun inaccessibleProviderDoesNotCauseAutomaticRemoval() = runBlocking {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        val id = "provider-inaccessible:${System.nanoTime()}"
+        val record = ExportRecord("Permission failure fixture", "", "",
+            uri = "content://com.example.animepahedl.test.deletion/unavailable-${System.nanoTime()}")
+        assertTrue(missingSavedFiles(app, mapOf(id to record)).isEmpty())
+    }
+
+    @Test fun forgettingSavedRecordClearsFailedDeleteMarkerAndAllowsRequeue() = runBlocking {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        DownloadStore.awaitReady()
+        val id = "forget-after-delete-failure:${System.nanoTime()}"
+        Exports.put(app, id, ExportRecord("Saved fixture", "", "", uri = "content://saved/fixture"))
+        DownloadStore.operation(id, "delete", "Storage provider refused deletion")
+        DownloadStore.operation(id, "delete-keep-file", "1")
+        DownloadStore.flush()
+        try {
+            forgetSavedDownloadRecord(app, id)
+            assertFalse(Exports.all(app).containsKey(id))
+            assertFalse(Exports.deleting(id))
+            assertFalse(DownloadStore.operations("delete-keep-file").containsKey(id))
+
+            Exports.prepare(app, id, "Requeued fixture")
+            DownloadStore.flush()
+            assertTrue(Exports.all(app).containsKey(id))
+            assertTrue(Exports.all(app)[id]?.uri.isNullOrBlank())
+        } finally {
+            Exports.remove(app, id)
+            DownloadStore.operation(id, "delete", null)
+            DownloadStore.operation(id, "delete-keep-file", null)
+            DownloadStore.flush()
+        }
+    }
+
     @Test fun legacyImportIsRepeatableAndNeverOverwritesSavedDestinations() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         withContext(Dispatchers.IO) {

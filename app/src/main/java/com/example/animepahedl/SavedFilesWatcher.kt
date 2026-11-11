@@ -58,6 +58,25 @@ private suspend fun <T> querySavedFiles(context: Context, uri: Uri, projection: 
     })
 }
 
+/** A missing document can produce a null cursor instead of an empty one.
+ * Check the descriptor in that case, but never mistake provider errors or revoked
+ * permissions for deletion. FileNotFoundException is the only definitive fallback.
+ */
+private suspend fun savedFilePresent(context: Context, uri: Uri): Boolean? = kotlinx.coroutines.withContext(Dispatchers.IO) {
+    val resolver = context.contentResolver
+    try {
+        val cursor = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        if (cursor != null) return@withContext cursor.use { it.moveToFirst() }
+        resolver.openAssetFileDescriptor(uri, "r")?.use { true }
+    } catch (_: java.io.FileNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+}
+
 /** Only confirmed absent rows are removed; queries are off-main and provider work is cancellable. */
 internal suspend fun missingSavedFiles(context: Context, records: Map<String, ExportRecord>): Map<String, ExportRecord> {
     val missing = mutableMapOf<String, ExportRecord>()
@@ -72,11 +91,18 @@ internal suspend fun missingSavedFiles(context: Context, records: Map<String, Ex
         val existing = querySavedFiles<Set<String>>(context, collection, arrayOf(MediaStore.MediaColumns._ID),
             "${MediaStore.MediaColumns._ID} IN (${ids.joinToString(",") { "?" }})", ids.toTypedArray()) { cursor ->
             buildSet<String> { while (cursor.moveToNext()) add(cursor.getLong(0).toString()) }
-        } ?: continue
+        }
+        // A provider that cannot answer a batch query still needs a per-file
+        // check. Otherwise every record in that batch remains stale forever.
+        if (existing == null) {
+            for (entry in chunk) if (savedFilePresent(context, entry.value.uri.toUri()) == false) {
+                missing[entry.key] = entry.value
+            }
+            continue
+        }
         for (entry in chunk) if (entry.value.uri.toUri().lastPathSegment !in existing) {
             // Recheck individual grants: a collection query can hide files shared by another app.
-            val present = querySavedFiles(context, entry.value.uri.toUri(), arrayOf(OpenableColumns.DISPLAY_NAME), notFound = false) { it.moveToFirst() }
-            if (present == false) missing[entry.key] = entry.value
+            if (savedFilePresent(context, entry.value.uri.toUri()) == false) missing[entry.key] = entry.value
         }
     }
     val treeAccessible = mutableMapOf<String, Boolean>()
@@ -92,8 +118,7 @@ internal suspend fun missingSavedFiles(context: Context, records: Map<String, Ex
             }
             if (!accessible) continue
         }
-        val present = querySavedFiles(context, uri, arrayOf(OpenableColumns.DISPLAY_NAME), notFound = false) { it.moveToFirst() }
-        if (present == false) missing[id] = record
+        if (savedFilePresent(context, uri) == false) missing[id] = record
     }
     return missing
 }

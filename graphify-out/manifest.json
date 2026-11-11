@@ -6,9 +6,9 @@
     "semantic_hash": ""
   },
   "app/build.gradle.kts": {
-    "mtime": 1794379063.71762,
-    "seen": 1794379070.3817782,
-    "ast_hash": "b055babc7b14dc183c1b9813d417f2d9",
+    "mtime": 1794384151.9503276,
+    "seen": 1794384165.0346253,
+    "ast_hash": "ed3cd8c278227b5b082005dda6a93acd",
     "semantic_hash": ""
   },
   "app/schemas/com.example.animepahedl.DownloadDatabase/1.json": {
@@ -24,15 +24,15 @@
     "semantic_hash": ""
   },
   "app/src/androidTest/java/com/example/animepahedl/DeletionRecoveryTest.kt": {
-    "mtime": 1794377534.6820111,
-    "seen": 1794377545.3877814,
-    "ast_hash": "3b734be5215d28f5fc3c5b2675ddae27",
+    "mtime": 1794383683.835008,
+    "seen": 1794383819.8100445,
+    "ast_hash": "6571b4199e7ce8a631718581420d51aa",
     "semantic_hash": ""
   },
   "app/src/androidTest/java/com/example/animepahedl/DeletionTestProvider.java": {
-    "mtime": 1794267038.1044323,
-    "seen": 1794310881.0539076,
-    "ast_hash": "5933607e91c40193d781e0a23c7d06d2",
+    "mtime": 1794380839.9211597,
+    "seen": 1794380874.5741258,
+    "ast_hash": "f8e785c5e56f621053f461a2159bfe91",
     "semantic_hash": ""
   },
   "app/src/androidTest/java/com/example/animepahedl/DownloadSelectionTest.kt": {
@@ -1014,15 +1014,15 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DownloadRepository.kt": {
-    "mtime": 1794378832.9332225,
-    "seen": 1794378862.1816401,
-    "ast_hash": "7717c65b4a762991ed57d0dbfc3bd1f3",
+    "mtime": 1794383644.5900402,
+    "seen": 1794383819.8105056,
+    "ast_hash": "bf47cdabf1429c053cf484dea728e09c",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DownloadState.kt": {
-    "mtime": 1794267038.116303,
-    "seen": 1794310881.054239,
-    "ast_hash": "6b12b136f00aaa96686e3ae559e3b2ce",
+    "mtime": 1794383737.53298,
+    "seen": 1794383819.8105083,
+    "ast_hash": "d5d784c26a90da6ce983084e4516d470",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DownloadStore.kt": {
@@ -1032,9 +1032,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DownloaderViewModel.kt": {
-    "mtime": 1794377466.319068,
-    "seen": 1794377545.388044,
-    "ast_hash": "8144fcb232b2ae0a00f07165e37934a2",
+    "mtime": 1794383651.4700341,
+    "seen": 1794383819.8105135,
+    "ast_hash": "50d8deef6eba5a9a29a99c6ef15af1e2",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DramatipCatalog.kt": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/LibraryScreens.kt": {
-    "mtime": 1794272336.1937647,
-    "seen": 1794310881.0542712,
-    "ast_hash": "e215ae27c455e6215b24445fd2e3006c",
+    "mtime": 1794383743.762977,
+    "seen": 1794383819.8105478,
+    "ast_hash": "785a2b2f67626735d3a7b1e2e2ca5dc7",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/LibraryTools.kt": {
@@ -1230,21 +1230,21 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/RemoteDramaPlayer.kt": {
-    "mtime": 1794377490.8080516,
-    "seen": 1794377545.3880928,
-    "ast_hash": "98cd58867b5077fd08ecd3580989905b",
+    "mtime": 1794380839.9210672,
+    "seen": 1794380874.5744047,
+    "ast_hash": "51b82f1e66c480ad68f3d8983bec941d",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SafeDeletion.kt": {
-    "mtime": 1794377442.9670727,
-    "seen": 1794377545.3880942,
-    "ast_hash": "99a37bbfedadc48abe1adf95e40b54e2",
+    "mtime": 1794380839.920939,
+    "seen": 1794380874.5744061,
+    "ast_hash": "32bf1339e4795a94825ec73b7e65c4eb",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SavedFilesWatcher.kt": {
-    "mtime": 1794267038.1192207,
-    "seen": 1794310881.0543137,
-    "ast_hash": "58c4d6d63f163af6b4e293356528bd8f",
+    "mtime": 1794380839.9207666,
+    "seen": 1794380874.5744076,
+    "ast_hash": "159a61e0d7273747f669fe1dc97a4fa8",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SavedShowsStore.kt": {
@@ -1302,9 +1302,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadSources.kt": {
-    "mtime": 1794377620.2279546,
-    "seen": 1794377689.0472274,
-    "ast_hash": "2a3f7c6c779711aeb7e39aa1cd0bf9aa",
+    "mtime": 1794383662.3960252,
+    "seen": 1794383819.8106298,
+    "ast_hash": "e81b06fd7d785494ddaeb3345a300057",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadViewModel.kt": {
@@ -1698,9 +1698,9 @@
     "semantic_hash": ""
   },
   "app/src/test/java/com/example/animepahedl/SiteDownloadSourcesTest.kt": {
-    "mtime": 1794377637.8519423,
-    "seen": 1794377689.0473251,
-    "ast_hash": "c28ff0ba57fa7e3be7becc664bb26602",
+    "mtime": 1794383672.2920175,
+    "seen": 1794383819.8107991,
+    "ast_hash": "5f4866f6cc6581bd34a878eba6d4e7b1",
     "semantic_hash": ""
   },
   "app/src/test/java/com/example/animepahedl/SiteMetadataApiTest.kt": {
@@ -2001,6 +2001,12 @@
     "mtime": 1794267038.244363,
     "seen": 1794310881.0545647,
     "ast_hash": "ac904b3883098a376f68e97a916c9544",
+    "semantic_hash": ""
+  },
+  "app/src/test/java/com/example/animepahedl/DownloadStateTest.kt": {
+    "mtime": 1794383765.1159635,
+    "seen": 1794383819.8107462,
+    "ast_hash": "42258eb09bf0f878aea349500b52fcfc",
     "semantic_hash": ""
   }
 }
