@@ -389,8 +389,7 @@ internal fun SettingsScreen(model: DownloaderViewModel, onAbout: () -> Unit, sit
     var showHealth by remember { mutableStateOf(false) }
     if (showHealth) AlertDialog(onDismissRequest = { showHealth = false }, title = { Text("Source health") }, text = { Text(model.sourceHealthHistory() + "\n\nBrowser verification does not guarantee HTTP acceptance.", Modifier.verticalScroll(rememberScrollState())) }, confirmButton = { TextButton(onClick = { showHealth = false; model.verifyManually() }) { Text("Verify") } }, dismissButton = { TextButton(onClick = { showHealth = false }) { Text("Close") } })
     var showRecovery by remember { mutableStateOf(false) }
-    var diagnosticPreview by remember { mutableStateOf<String?>(null) }
-    var exportingDiagnostic by remember { mutableStateOf<String?>(null) }
+    var exportingDiagnostic by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val catalogSourcePreferences = remember(context) { CatalogSourcePreferences.also { it.attach(context) } }
     val catalogSourceOrder by catalogSourcePreferences.state.collectAsState()
@@ -443,11 +442,20 @@ internal fun SettingsScreen(model: DownloaderViewModel, onAbout: () -> Unit, sit
     )
     val scope = rememberCoroutineScope()
     val diagnosticPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        val contents = exportingDiagnostic
-        exportingDiagnostic = null
-        if (uri != null && contents != null) scope.launch {
-            try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { it.write(contents.toByteArray()) } ?: error("Cannot write report") } }
-            catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; android.widget.Toast.makeText(context, "Could not export diagnostics", android.widget.Toast.LENGTH_LONG).show() }
+        val shouldExport = exportingDiagnostic
+        exportingDiagnostic = false
+        if (uri != null && shouldExport) scope.launch {
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val contents = DebugTrace.readLog()
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(contents.toByteArray(Charsets.UTF_8)) }
+                        ?: error("Cannot write diagnostics file")
+                }
+                android.widget.Toast.makeText(context, "Diagnostic log saved", android.widget.Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                android.widget.Toast.makeText(context, "Could not export diagnostics", android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
     if (showRecovery) AlertDialog(onDismissRequest = { showRecovery = false }, title = { Text(androidx.compose.ui.res.stringResource(R.string.ui_storage_and_recovery)) }, text = {
@@ -460,10 +468,6 @@ internal fun SettingsScreen(model: DownloaderViewModel, onAbout: () -> Unit, sit
             TextButton(onClick = model::inspectLibrary) { Text(androidx.compose.ui.res.stringResource(R.string.ui_refresh_storage_check)) }
         }
     }, confirmButton = { TextButton(onClick = { showRecovery = false }) { Text(androidx.compose.ui.res.stringResource(R.string.ui_done)) } })
-    diagnosticPreview?.let { preview -> AlertDialog(onDismissRequest = { diagnosticPreview = null }, title = { Text(androidx.compose.ui.res.stringResource(R.string.ui_preview_diagnostics)) },
-        text = { Text(preview, Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { TextButton(onClick = { exportingDiagnostic = preview; diagnosticPreview = null; diagnosticPicker.launch("animepahe-diagnostics.txt") }) { Text(androidx.compose.ui.res.stringResource(R.string.ui_save_report)) } },
-        dismissButton = { TextButton(onClick = { diagnosticPreview = null }) { Text(androidx.compose.ui.res.stringResource(R.string.ui_cancel)) } }) }
     var choice by remember { mutableStateOf<String?>(null) }
     var section by rememberSaveable { mutableStateOf<String?>(null) }
     val themeBackground by SettingsStore.themeBackground.collectAsState()
@@ -534,7 +538,7 @@ internal fun SettingsScreen(model: DownloaderViewModel, onAbout: () -> Unit, sit
                 "content" -> { item(contentType = "settings-heading") { Text("Short dramas", style = MaterialTheme.typography.titleMedium) }; item(contentType = "settings-description") { Text("Choose a short drama source from Home or Browse to explore its catalog.", Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 "data" -> {
                     item(contentType = "settings-description") { Text("Temporary storage: ${Formatter.formatShortFileSize(context, model.temporaryBytes)}", Modifier.padding(vertical = 12.dp)) }
-                    item(contentType = "settings-row") { SettingsRow(AppIcon.Info, "Export diagnostics", "Preview a report without titles, paths, or cookies") { diagnosticPreview = diagnostics(context) } }
+                    item(contentType = "settings-row") { SettingsRow(AppIcon.Info, "Download diagnostic log", "Save the full playback and network log") { exportingDiagnostic = true; diagnosticPicker.launch("anilili-diagnostics.jsonl") } }
                     item(contentType = "settings-row") { SettingsRow(AppIcon.Folder, "Storage and recovery", "Check free space and missing files") { model.inspectLibrary(); showRecovery = true } }
                 }
                 "app" -> { item(contentType = "settings-row") { SettingsRow(AppIcon.Info, "About", "Version and what’s new", onAbout) } }

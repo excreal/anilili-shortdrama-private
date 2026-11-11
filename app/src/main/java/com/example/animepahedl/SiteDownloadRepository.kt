@@ -102,7 +102,15 @@ internal class SiteDownloadRepository(
             if (number == null) throw IOException("Select a Narto episode before downloading.")
             val page = nartoPage(url, cookie)
             validateEpisodePage(url, page.url, provider)
-            parseNartoVariants(page.text, page.url, number)
+            val variants = parseNartoVariants(page.text, page.url, number)
+            DebugTrace.event("narto_sources_parsed", "episode_url" to url.toString(),
+                "metadata_page_url" to page.url.toString(), "episode_number" to number,
+                "candidates" to variants.mapIndexed { index, variant ->
+                    mapOf("index" to index, "url" to variant.url, "mime_type" to variant.mimeType,
+                        "quality" to variant.quality, "headers" to variant.headers,
+                        "backup_urls" to variant.backupUrls)
+                })
+            variants
         }
         SiteDownloadProvider.KISS18 -> kissVariants(url, cookie)
         else -> throw IOException("${provider.contentLabel} sources aren't included in this edition.")
@@ -161,7 +169,25 @@ internal class SiteDownloadRepository(
                 val received = providerSession.loadForRequest(target).filterNot { it.name in names }.map { "${it.name}=${it.value}" }
                 (received + imported).joinToString("; ").takeIf(String::isNotBlank)?.let { builder.header("Cookie", it) }
             } else if (target.host != url.host || target.scheme != url.scheme || target.port != url.port) builder.removeHeader("Cookie")
-            chain.proceed(builder.build())
+            val outgoing = builder.build()
+            val started = System.nanoTime()
+            DebugTrace.event("site_page_http_request", "method" to outgoing.method,
+                "url" to outgoing.url.toString(), "headers" to outgoing.headers.toMultimap())
+            try {
+                val response = chain.proceed(outgoing)
+                DebugTrace.event("site_page_http_response", "request_url" to outgoing.url.toString(),
+                    "response_url" to response.request.url.toString(), "status" to response.code,
+                    "message" to response.message, "headers" to response.headers.toMultimap(),
+                    "redirect_location" to response.header("Location"),
+                    "duration_ms" to (System.nanoTime() - started) / 1_000_000)
+                response
+            } catch (failure: IOException) {
+                DebugTrace.event("site_page_http_transport_error", "url" to outgoing.url.toString(),
+                    "error_type" to failure.javaClass.name, "error_message" to failure.message,
+                    "error_stack" to failure.stackTraceToString(),
+                    "duration_ms" to (System.nanoTime() - started) / 1_000_000)
+                throw failure
+            }
         }.build()
         val request = Request.Builder().url(url).header("User-Agent", userAgent).header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,image/avif,image/webp,*/*;q=0.8")
             .header("Accept-Language", "en-US,en;q=0.9")

@@ -34,24 +34,6 @@ internal suspend fun verifyCopy(context: Context, uri: Uri, expectedBytes: Long,
     require(size == expectedBytes && digest.digest().contentEquals(expectedDigest)) { "Saved file failed integrity verification; source retained" }
 }
 
-internal fun diagnostics(context: Context): String {
-    val info = context.packageManager.getPackageInfo(context.packageName, 0)
-    val rows = Exports.all(context).values
-    return buildString {
-        appendLine("Anilili ShortDrama diagnostic summary")
-        appendLine("Version: ${info.versionName} (${info.longVersionCode})")
-        appendLine("Android API: ${android.os.Build.VERSION.SDK_INT}")
-        appendLine("ABIs: ${android.os.Build.SUPPORTED_ABIS.joinToString()}")
-        appendLine("Saved: ${rows.count { it.uri.isNotBlank() }}")
-        appendLine("Unfinished: ${rows.count { it.uri.isBlank() }}")
-        appendLine("Failures by category:")
-        rows.filter { it.error.isNotBlank() }.groupingBy { classifyFailure(it.error) }.eachCount().forEach { (category, count) -> appendLine("$category: $count") }
-        appendLine("Pending deletions: ${DownloadStore.operations("delete").size}")
-        appendLine("Pending enqueue recovery: ${DownloadStore.operations("direct-enqueue").size}")
-        appendLine("No titles, file paths, cookies, or media URLs are included.")
-    }
-}
-
 internal object QueueOrder {
     fun ordered(context: Context, ids: List<String>): List<String> {
         val preferred = (DownloadStore.operations("queue")["order"] ?: context.getSharedPreferences("queue-order", Context.MODE_PRIVATE).getString("ids", "").orEmpty()).split('\n')

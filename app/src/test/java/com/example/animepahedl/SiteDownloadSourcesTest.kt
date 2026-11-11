@@ -111,6 +111,13 @@ class SiteDownloadSourcesTest {
         assertEquals("application/x-mpegURL", variants[1].mimeType)
         assertEquals("video/mp4", variants[2].mimeType)
     }
+    @Test fun nartoPlaybackKeepsGatewayUrlInsteadOfResolvedRedirectUrl() {
+        val gateway = "https://narto.test/gateway/episode-1"
+        val redirected = "https://stream.narto.test/signed/one-time-token"
+        val selected = nartoPlaybackCandidate(listOf(ResolvedMedia(gateway, "Best", "und")), 0)
+        assertEquals(gateway, selected.url)
+        assertNotEquals(redirected, selected.url)
+    }
     @Test fun nartoFixtureExposesBothPlayableUrlsAndMarksOpaqueStreamAsHls() {
         val episodes = javaClass.getResource("/narto/episode-actual-shape.json")!!.readText().trim()
         val base = "https://narto-drama.com/detail/watch/story/1".toHttpUrl()

@@ -45,7 +45,25 @@ internal object MediaRequests {
             builder.removeHeader("Cookie")
             cookieHeader.invoke(chain.request().url.toString()).takeIf { it.isNotBlank() }?.let { builder.header("Cookie", it) }
         }
-        chain.proceed(builder.build())
+        val request = builder.build()
+        val started = System.nanoTime()
+        DebugTrace.event("media_http_request", "method" to request.method, "url" to request.url.toString(),
+            "headers" to request.headers.toMultimap())
+        try {
+            val response = chain.proceed(request)
+            DebugTrace.event("media_http_response", "request_url" to request.url.toString(),
+                "response_url" to response.request.url.toString(), "status" to response.code,
+                "message" to response.message, "headers" to response.headers.toMultimap(),
+                "redirect_location" to response.header("Location"),
+                "duration_ms" to (System.nanoTime() - started) / 1_000_000)
+            response
+        } catch (failure: IOException) {
+            DebugTrace.event("media_http_transport_error", "url" to request.url.toString(),
+                "error_type" to failure.javaClass.name, "error_message" to failure.message,
+                "error_stack" to failure.stackTraceToString(),
+                "duration_ms" to (System.nanoTime() - started) / 1_000_000)
+            throw failure
+        }
     }.build()
 
     /** Probe alternatives before enqueueing, keeping the selected URL and its scoped headers durable. */

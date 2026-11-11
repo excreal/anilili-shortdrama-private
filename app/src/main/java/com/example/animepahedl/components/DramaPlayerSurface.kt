@@ -77,7 +77,7 @@ internal fun DramaPlayerSurface(
     external: ((Int) -> Unit)? = null,
     saved: Boolean = false,
     onToggleSave: (() -> Unit)? = null,
-    onPlaybackFailure: ((Int) -> Boolean)? = null,
+    onPlaybackFailure: ((Int, Throwable) -> Boolean)? = null,
 ) {
     if (episodes.isEmpty()) { LaunchedEffect(Unit) { onClose() }; return }
     val context = LocalContext.current
@@ -127,6 +127,7 @@ internal fun DramaPlayerSurface(
     BackHandler(onBack = ::close)
 
     DisposableEffect(player) {
+        player?.let(com.anilili.playback.PlaybackDiagnostics::attach)
         onDispose { persist(); player?.release() }
     }
     DisposableEffect(player, owner) {
@@ -145,7 +146,15 @@ internal fun DramaPlayerSurface(
                 }
             }
             override fun onPlayerError(failure: PlaybackException) {
-                if (latestPlaybackFailure?.invoke(pager.settledPage) == true) {
+                DebugTrace.event("drama_exoplayer_error",
+                    "series_key" to seriesKey,
+                    "episode_id" to latestEpisodes.getOrNull(pager.settledPage)?.id,
+                    "media_uri" to player?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                    "error_code" to failure.errorCode,
+                    "error_code_name" to failure.errorCodeName,
+                    "error_message" to failure.message,
+                    "error_stack" to failure.stackTraceToString())
+                if (latestPlaybackFailure?.invoke(pager.settledPage, failure) == true) {
                     persist()
                     retry++
                     return
@@ -193,7 +202,14 @@ internal fun DramaPlayerSurface(
                 resumeAfterPause = playOnOpen
             } catch (cancelled: CancellationException) { throw cancelled
             } catch (failure: Exception) {
-                if (latestPlaybackFailure?.invoke(page) == true) {
+                DebugTrace.event("drama_source_resolution_error",
+                    "series_key" to seriesKey,
+                    "episode_id" to episode.id,
+                    "episode_history_key" to episode.historyKey,
+                    "error_type" to failure.javaClass.name,
+                    "error_message" to failure.message,
+                    "error_stack" to failure.stackTraceToString())
+                if (latestPlaybackFailure?.invoke(page, failure) == true) {
                     retry++
                     return@collectLatest
                 }

@@ -3,6 +3,7 @@ package com.example.animepahedl
 import com.google.gson.Gson
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
+import okhttp3.Request
 import org.junit.Assert.*
 import org.junit.Test
 import java.net.InetSocketAddress
@@ -121,6 +122,45 @@ class SiteDownloadDownloadTest {
             val selected = MediaRequests.available(ResolvedMedia(url, "Best", "und", mimeType = "application/x-mpegURL"))
             assertTrue(selected.isHls())
             assertNull(range)
+        } finally { server.stop(0) }
+    }
+
+    @Test fun mediaClientGetsFreshOneTimeRedirectWhenItRequestsTheGatewayAgain() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        var issued = 0
+        val consumed = mutableSetOf<String>()
+        try {
+            server.createContext("/gateway") { exchange ->
+                val token = "token-${issued++}"
+                exchange.responseHeaders.add("Location", "http://127.0.0.1:${server.address.port}/signed/$token")
+                exchange.sendResponseHeaders(302, -1)
+                exchange.close()
+            }
+            server.createContext("/signed") { exchange ->
+                val token = exchange.requestURI.path.substringAfterLast('/')
+                val bytes = "media".toByteArray()
+                val status = if (consumed.add(token)) 200 else 410
+                exchange.sendResponseHeaders(status, if (status == 200) bytes.size.toLong() else -1)
+                if (status == 200) exchange.responseBody.use { it.write(bytes) } else exchange.close()
+            }
+            server.start()
+            val gateway = "http://127.0.0.1:${server.address.port}/gateway"
+            val media = ResolvedMedia(gateway, "Best", "und", mapOf("Referer" to "http://provider.test/episode/1"))
+            val client = MediaRequests.client(media)
+            val redirectedUrls = mutableListOf<String>()
+            repeat(2) {
+                val request = Request.Builder().url(gateway).apply {
+                    mediaRequestHeaders(media).forEach { (name, value) -> header(name, value) }
+                }.build()
+                client.newCall(request).execute().use { response ->
+                    assertEquals(200, response.code)
+                    assertEquals("media", response.body!!.string())
+                    redirectedUrls += response.request.url.toString()
+                }
+            }
+            assertEquals(2, issued)
+            assertNotEquals(redirectedUrls[0], redirectedUrls[1])
+            assertEquals(gateway, media.url)
         } finally { server.stop(0) }
     }
 }
