@@ -101,6 +101,16 @@ class SiteDownloadSourcesTest {
         assertEquals("https://stream.narto-drama.com/e/m/SANITIZED_SIGNED_STREAM?mh=1", media.url)
         assertEquals("application/x-mpegURL", media.mimeType)
     }
+    @Test fun nartoRecognizesExtensionlessViglooPlayUrlAsHlsWhenPrefetchIsDisabled() {
+        val body = """const episodeItemsRaw = [{"route_episode_number":1,"direct_play_url":"https://stream-e1.narto-drama.com/e/m/DIRECT","play_url":"https://vigloo-stream.narto-drama.com/e/m/PLAY","schema_content_url":"https://vigloo-stream.narto-drama.com/e/m/SCHEMA","browser_prefetch_mode":"none"}];"""
+        val variants = parseNartoVariants(body, "https://edge.narto-drama.com/detail/watch/story/1".toHttpUrl(), 1)
+        val media = variants.first()
+        assertEquals("https://vigloo-stream.narto-drama.com/e/m/PLAY", media.url)
+        assertEquals("application/x-mpegURL", media.mimeType)
+        assertEquals(3, variants.size)
+        assertEquals("application/x-mpegURL", variants[1].mimeType)
+        assertEquals("video/mp4", variants[2].mimeType)
+    }
     @Test fun nartoFixtureExposesBothPlayableUrlsAndMarksOpaqueStreamAsHls() {
         val episodes = javaClass.getResource("/narto/episode-actual-shape.json")!!.readText().trim()
         val base = "https://narto-drama.com/detail/watch/story/1".toHttpUrl()

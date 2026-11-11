@@ -104,4 +104,23 @@ class SiteDownloadDownloadTest {
             assertEquals(listOf("$base/expired"), selected.backupUrls)
         } finally { server.stop(0) }
     }
+
+    @Test fun fallbackPreflightDoesNotAddRangeToExtensionlessHls() = runBlocking {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        var range: String? = "unvisited"
+        try {
+            server.createContext("/opaque-token") { exchange ->
+                range = exchange.requestHeaders.getFirst("Range")
+                val body = "#EXTM3U\n#EXT-X-ENDLIST\n".toByteArray()
+                exchange.responseHeaders.add("Content-Type", "application/vnd.apple.mpegurl")
+                exchange.sendResponseHeaders(200, body.size.toLong())
+                exchange.responseBody.use { it.write(body) }
+            }
+            server.start()
+            val url = "http://127.0.0.1:${server.address.port}/opaque-token"
+            val selected = MediaRequests.available(ResolvedMedia(url, "Best", "und", mimeType = "application/x-mpegURL"))
+            assertTrue(selected.isHls())
+            assertNull(range)
+        } finally { server.stop(0) }
+    }
 }

@@ -28,7 +28,7 @@ APP_USER_AGENT = (
     "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
 )
-PLAYER_FIELDS = ("direct_play_url", "play_url", "schema_content_url")
+PLAYER_FIELDS = ("play_url", "schema_content_url", "direct_play_url")
 
 
 def parse_args() -> argparse.Namespace:
@@ -76,6 +76,7 @@ def is_hls(url: str, field: str, entry: dict) -> bool:
     parsed = urllib.parse.urlsplit(url)
     return (
         parsed.path.lower().endswith(".m3u8")
+        or parsed.hostname == "vigloo-stream.narto-drama.com"
         or (field == "play_url" and entry.get("browser_prefetch_mode") == "hls")
         or (field == "direct_play_url" and entry.get("direct_play_is_hls") is True)
     )

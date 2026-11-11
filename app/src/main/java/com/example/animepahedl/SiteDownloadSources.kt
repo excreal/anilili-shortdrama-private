@@ -244,7 +244,8 @@ internal fun parseNartoVariants(body: String, url: HttpUrl, number: Int): List<D
         val target = runCatching { dramaAbsolute(url, raw).toHttpUrl() }.getOrNull() ?: return@mapNotNull null
         val media = target.toString()
         if (target.scheme != "https") return@mapNotNull null
-        val hls = isDramaHls(target) || (key == "play_url" && episode.dramaString("browser_prefetch_mode") == "hls") ||
+        val hls = isDramaHls(target) || target.host == "vigloo-stream.narto-drama.com" ||
+            (key == "play_url" && episode.dramaString("browser_prefetch_mode") == "hls") ||
             (key == "direct_play_url" && episode.get("direct_play_is_hls")?.toString() == "true")
         // Narto can publish playable provider URLs as opaque paths with browser_prefetch_mode=none.
         // That mode only disables neighbor prefetch; the site's player still treats play_url as a

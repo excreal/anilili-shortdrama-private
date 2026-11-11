@@ -56,7 +56,9 @@ internal object MediaRequests {
                 val headers = mediaRequestHeaders(media, candidate)
                 val request = Request.Builder().url(candidate).apply {
                     headers.forEach { (name, value) -> header(name, value) }
-                    if (!candidate.toHttpUrl().encodedPath.endsWith(".m3u8", true)) header("Range", "bytes=0-1023")
+                    if (!media.isHls() && !candidate.toHttpUrl().encodedPath.endsWith(".m3u8", true)) {
+                        header("Range", "bytes=0-1023")
+                    }
                 }.build()
                 val selected = client(media, cookieHeader).newCall(request).consumeCancellable { response ->
                     if (!response.isSuccessful) throw HttpFailure(candidate, candidate, response.code, "Media server rejected the request")
