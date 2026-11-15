@@ -270,3 +270,7 @@ Test the changes against:
 Add focused Compose regression checks for navigation from Settings/About via View, constrained-width cards/search, and large-font dialog/list reachability. Use text-layout overflow assertions or screenshot inspection where actual wrapping matters. Do not treat node existence or `assertIsDisplayed()` alone as proof that the entire label is visible.
 
 This report is a source-based fix backlog. Device verification should confirm the layout-risk entries before assigning them the status of reproduced visual defects.
+
+## Follow-up status (2026-11-15)
+
+- Finding 2: release 1.2.21 uses an 84dp thumbnail and hides the duplicate pause/resume shortcut on download cards narrower than 420dp; the same action remains in the row menu. Titles and statuses have bounded lines, and the Details action exposes the full text. Build and lint passed. The constrained-width and large-font visual acceptance check remains open because this environment has no connected Android device or emulator.

@@ -106,39 +106,45 @@ internal fun DownloadReferenceEpisodeRow(
             onLongClickLabel = "Select episodes", onClick = {
                 if (selectionActive) onToggleSelected() else if (episode.playable) onPlay()
             }, onLongClick = onToggleSelected)) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(104.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
-                AsyncImage(model = episode.artworkUrl, imageLoader = images, contentDescription = null,
-                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                Box(Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = if (selectionActive) .72f else .55f)),
-                    contentAlignment = Alignment.Center) {
-                    CompositionLocalProvider(LocalContentColor provides Color.White) {
-                        if (selectionActive && !selected) Canvas(Modifier.size(20.dp)) { drawCircle(Color.White, style = Stroke(width = 2.dp.toPx())) }
-                        else AppSymbol(when { selectionActive -> AppIcon.Check; episode.playable -> AppIcon.Play; else -> AppIcon.Download }, Modifier.size(20.dp))
+        BoxWithConstraints {
+            val compact = maxWidth < 420.dp
+            Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(if (compact) 84.dp else 104.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+                    AsyncImage(model = episode.artworkUrl, imageLoader = images, contentDescription = null,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    Box(Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = if (selectionActive) .72f else .55f)),
+                        contentAlignment = Alignment.Center) {
+                        CompositionLocalProvider(LocalContentColor provides Color.White) {
+                            if (selectionActive && !selected) Canvas(Modifier.size(20.dp)) { drawCircle(Color.White, style = Stroke(width = 2.dp.toPx())) }
+                            else AppSymbol(when { selectionActive -> AppIcon.Check; episode.playable -> AppIcon.Play; else -> AppIcon.Download }, Modifier.size(20.dp))
+                        }
                     }
                 }
-            }
-            Column(Modifier.weight(1f).padding(start = 10.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (episode.watched) {
-                        AppSymbol(AppIcon.CheckCircle, Modifier.size(16.dp), "Watched")
-                        Spacer(Modifier.width(6.dp))
+                Column(Modifier.weight(1f).padding(start = 10.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (episode.watched) {
+                            AppSymbol(AppIcon.CheckCircle, Modifier.size(16.dp), "Watched")
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(episode.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                            color = if (episode.watched) secondary else content, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Text(episode.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
-                        color = if (episode.watched) secondary else content)
+                    if (episode.subtitle.isNotBlank()) Text(episode.subtitle, style = MaterialTheme.typography.bodySmall,
+                        color = secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (episode.progress != null) LinearProgressIndicator(progress = { episode.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    else if (episode.indeterminate) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (!episode.watched) WatchProgressBar(episode.watchProgress, Modifier.fillMaxWidth())
+                    Text(episode.status, style = MaterialTheme.typography.labelSmall,
+                        color = if (episode.failed) MaterialTheme.colorScheme.error else secondary,
+                        maxLines = if (compact) 2 else 3, overflow = TextOverflow.Ellipsis)
                 }
-                if (episode.subtitle.isNotBlank()) Text(episode.subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (episode.progress != null) LinearProgressIndicator(progress = { episode.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-                else if (episode.indeterminate) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (!episode.watched) WatchProgressBar(episode.watchProgress, Modifier.fillMaxWidth())
-                Text(episode.status, style = MaterialTheme.typography.labelSmall,
-                    color = if (episode.failed) MaterialTheme.colorScheme.error else secondary)
-            }
-            if (!selectionActive) {
-                if (controlIcon != null) IconButton(onClick = onControl) { AppSymbol(controlIcon, description = controlLabel) }
-                actions()
+                if (!selectionActive) {
+                    // The action menu contains the same pause/resume/retry actions, so drop the
+                    // duplicate shortcut on narrow cards to preserve room for episode identity.
+                    if (!compact && controlIcon != null) IconButton(onClick = onControl) { AppSymbol(controlIcon, description = controlLabel) }
+                    actions()
+                }
             }
         }
     }

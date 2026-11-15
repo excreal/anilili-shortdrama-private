@@ -4,6 +4,10 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-15)
 
+- Release 1.2.21 (version code 21) adapts download rows below 420dp: smaller artwork, no duplicate inline pause/resume control, and bounded title/status lines with full details still available from the row menu. The local unit suite passed (166 tests, no failures/errors/skips), and `:app:lintDebug` passed with 0 errors, 122 warnings, and 4 hints.
+- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.21.21-release.apk`. `apksigner verify --verbose --print-certs` passed with release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `3c2fe100bd913acb82697b6e664b0d09c8cf44e99a97648e9c7ae533957742e1`.
+- The APK is published as `/srv/downloads/builds/app-release-3c2fe100bd91.apk`; current, versioned, and `/srv/downloads/release/` nginx links target it. Current and versioned range requests returned `206` with the requested byte, and the published hash matches the build.
+- No connected Android device or emulator is available for a rendered 320dp/large-font check. The codebase review remains open.
 - Release 1.2.20 (version code 20) adds the laid-out Activity bounds as the PiP source rectangle. `:app:lintDebug` and the signed release build passed; the PiP lint warning is gone. Lint reports 0 errors, 122 warnings, and 4 hints, mostly dependency and platform recommendations.
 - `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.20.20-release.apk`. `apksigner verify --verbose --print-certs` passed with the existing release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `23933c91ea710699c9081f0d484bfd659629ba7ae8430590acc1816d8846d8b7`.
 - The APK is published as `/srv/downloads/builds/app-release-23933c91ea71.apk`. The current, versioned, and `/srv/downloads/release/` nginx links target it; current and versioned range requests returned `206` with the requested byte. The published APK hash matches the build.
