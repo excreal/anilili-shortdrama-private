@@ -630,7 +630,7 @@ internal fun TvPlayerControls(
                                                 true
                                             }
                                             event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter -> {
-                                                scrubMs?.let { onSeek?.invoke(it) }
+                                                scrubMs?.let { onSeek.invoke(it) }
                                                 scrubMs = null
                                                 scrubPresses = 0
                                                 true
