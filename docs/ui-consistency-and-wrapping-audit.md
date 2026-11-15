@@ -274,3 +274,4 @@ This report is a source-based fix backlog. Device verification should confirm th
 ## Follow-up status (2026-11-15)
 
 - Finding 2: release 1.2.21 uses an 84dp thumbnail and hides the duplicate pause/resume shortcut on download cards narrower than 420dp; the same action remains in the row menu. Titles and statuses have bounded lines, and the Details action exposes the full text. Build and lint passed. The constrained-width and large-font visual acceptance check remains open because this environment has no connected Android device or emulator.
+- Finding 15: release 1.2.22 says “Saved offline” instead of claiming every completed file is in the Downloads folder, and completed-item Details no longer shows the current folder as the file's actual location. Other action-label consistency still needs review.

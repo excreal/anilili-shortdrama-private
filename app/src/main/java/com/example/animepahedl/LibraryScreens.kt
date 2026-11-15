@@ -124,7 +124,7 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
         dismissButton = { TextButton(onClick = { forgetId = null }) { Text(androidx.compose.ui.res.stringResource(R.string.ui_keep)) } }) }
     var detailRow by remember { mutableStateOf<DownloadRow?>(null) }
     detailRow?.let { row -> AlertDialog(onDismissRequest = { detailRow = null }, title = { Text(androidx.compose.ui.res.stringResource(R.string.ui_download_details)) },
-        text = { Text("${row.title}\n\n${row.status}\n\n${outputLabel(model)}", Modifier.verticalScroll(rememberScrollState())) },
+        text = { Text("${row.title}\n\n${row.status}" + if (row.complete) "" else "\n\nSelected destination: ${outputLabel(model)}", Modifier.verticalScroll(rememberScrollState())) },
         confirmButton = { TextButton(onClick = { detailRow = null }) { Text(androidx.compose.ui.res.stringResource(R.string.ui_close)) } }) }
     val gridListState = rememberLazyListState()
     val episodeListState = rememberLazyListState()
@@ -303,7 +303,7 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                             row.audioCode?.takeIf { it.isNotBlank() && it != "und" }?.let { " · ${audioTag(it)}" }.orEmpty(),
                         subtitle = (row.quality ?: parts.getOrNull(2).orEmpty()).takeUnless { it in setOf("Original", "Best") }.orEmpty(), artworkUrl = row.thumbnail,
                         status = listOfNotNull(if (watched) "Watched" else resumeLabel,
-                            savedFileLocationStatus(row) ?: friendlyDownloadStatus(row.status),
+                            savedFileStatus(row) ?: friendlyDownloadStatus(row.status),
                             row.bytes.takeIf { it > 0 }?.let { Formatter.formatShortFileSize(context, it) + if (row.totalBytes > 0 && !row.complete) " / ${Formatter.formatShortFileSize(context, row.totalBytes)}" else "" },
                             row.percent.takeIf { it >= 0 && !row.complete }?.let { "${it.toInt()}%" }).joinToString(" · "),
                         playable = row.complete, failed = row.failed, watched = watched,

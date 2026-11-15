@@ -14,10 +14,10 @@ class DownloadStateTest {
         failure = failure,
     )
 
-    @Test fun savedLocationStatusSurfacesDeletionAndFolderFailures() {
-        assertEquals("Delete failed", savedFileLocationStatus(saved(FailureReason.DELETION)))
-        assertEquals("Folder access needed", savedFileLocationStatus(saved(FailureReason.FOLDER_ACCESS)))
-        assertEquals("In Downloads folder", savedFileLocationStatus(saved(null)))
-        assertNull(savedFileLocationStatus(DownloadRow("active", "Active video", TransferState.DOWNLOADING, 25f)))
+    @Test fun savedStatusSurfacesDeletionAndFolderFailuresWithoutAssumingLocation() {
+        assertEquals("Delete failed", savedFileStatus(saved(FailureReason.DELETION)))
+        assertEquals("Folder access needed", savedFileStatus(saved(FailureReason.FOLDER_ACCESS)))
+        assertEquals("Saved offline", savedFileStatus(saved(null)))
+        assertNull(savedFileStatus(DownloadRow("active", "Active video", TransferState.DOWNLOADING, 25f)))
     }
 }
