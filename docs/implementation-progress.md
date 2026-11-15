@@ -4,6 +4,10 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-15)
 
+- Release 1.2.20 (version code 20) adds the laid-out Activity bounds as the PiP source rectangle. `:app:lintDebug` and the signed release build passed; the PiP lint warning is gone. Lint reports 0 errors, 122 warnings, and 4 hints, mostly dependency and platform recommendations.
+- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.20.20-release.apk`. `apksigner verify --verbose --print-certs` passed with the existing release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `23933c91ea710699c9081f0d484bfd659629ba7ae8430590acc1816d8846d8b7`.
+- The APK is published as `/srv/downloads/builds/app-release-23933c91ea71.apk`. The current, versioned, and `/srv/downloads/release/` nginx links target it; current and versioned range requests returned `206` with the requested byte. The published APK hash matches the build.
+- No on-device PiP run was performed. The broader code review remains open.
 - Commit `553d9e1` contains the reviewed application fixes and initial release version bump; the unused resource cleanup is included in the following release commit.
 - `./gradlew :app:testDebugUnitTest` passed (166 tests, no failures or skips); `:app:compileDebugAndroidTestKotlin` passed. Instrumentation tests were compiled but not run in this checkout because no Android device is connected.
 - `:app:lintDebug` passed with warnings and no errors. The cleanup removed 28 lint-confirmed unused string/plural resources and the unreferenced legacy launcher image. A follow-up lint run reported zero `UnusedResources` issues and 127 other warnings.

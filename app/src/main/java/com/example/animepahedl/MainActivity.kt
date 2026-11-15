@@ -72,9 +72,30 @@ class MainActivity : ComponentActivity() {
         com.anilili.playback.PlaybackService.pauseActivePlayback()
         super.onStop()
     }
-    override fun onPictureInPictureModeChanged(active: Boolean, config: android.content.res.Configuration) {
-        super.onPictureInPictureModeChanged(active, config)
-        ReferencePlaybackRegistry.inPictureInPicture.value = active
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: android.content.res.Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        ReferencePlaybackRegistry.inPictureInPicture.value = isInPictureInPictureMode
+    }
+
+    private fun updatePictureInPictureParams(autoEnter: Boolean) {
+        val decorView = window.decorView
+        decorView.post {
+            val sourceRect = android.graphics.Rect()
+            decorView.getDrawingRect(sourceRect)
+            if (sourceRect.isEmpty) return@post
+
+            runCatching {
+                setPictureInPictureParams(android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(android.util.Rational(16, 9))
+                    .setAutoEnterEnabled(autoEnter)
+                    .setSeamlessResizeEnabled(true)
+                    .setSourceRectHint(sourceRect)
+                    .build())
+            }
+        }
     }
     private fun openFromIntent(intent: Intent?) {
         intent?.getStringExtra(com.anilili.ui.nav.Routes.EXTRA_ROUTE)?.let { ReferencePlaybackRegistry.pendingRoute.value = it }
@@ -100,8 +121,7 @@ class MainActivity : ComponentActivity() {
             kotlinx.coroutines.flow.combine(ReferencePlaybackRegistry.ready, com.anilili.data.settings.SettingsStore.pictureInPicture) { ready, enabled -> ready && enabled }
                 .collect { autoEnter ->
                     if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
-                        runCatching { setPictureInPictureParams(android.app.PictureInPictureParams.Builder()
-                            .setAspectRatio(android.util.Rational(16, 9)).setAutoEnterEnabled(autoEnter).setSeamlessResizeEnabled(true).build()) }
+                        updatePictureInPictureParams(autoEnter)
                     }
                 }
         }
