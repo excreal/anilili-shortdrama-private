@@ -4,11 +4,11 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-15)
 
-- Commit `553d9e1` contains the reviewed fixes and release version bump.
+- Commit `553d9e1` contains the reviewed application fixes and initial release version bump; the unused resource cleanup is included in the following release commit.
 - `./gradlew :app:testDebugUnitTest` passed (166 tests, no failures or skips); `:app:compileDebugAndroidTestKotlin` passed. Instrumentation tests were compiled but not run in this checkout because no Android device is connected.
-- `:app:lintDebug` passed with warnings and no errors. Remaining warnings include unused resource candidates, Compose/layout guidance, and the PiP source-rectangle recommendation; they are not a clean-lint result.
-- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.18.18-release.apk` (version code 18). `apksigner verify --verbose --print-certs` passed; its signing certificate matches the previously published release.
-- The APK is published under `/srv/downloads/builds/app-release-bc0749c40d8f.apk`; `/srv/downloads/release.apk` and the versioned nginx link point to it. HTTP range GET requests for both links returned 206 with the requested byte, and SHA-256 is `bc0749c40d8f66cebe72af227b3ac2c421582c3deb6b7780deb76a0cdbad282d`.
+- `:app:lintDebug` passed with warnings and no errors. The cleanup removed 28 lint-confirmed unused string/plural resources and the unreferenced legacy launcher image. A follow-up lint run reported zero `UnusedResources` issues and 127 other warnings.
+- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.19.19-release.apk` (version code 19). `apksigner verify --verbose --print-certs` passed; SHA-256 signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5` matches the previous release.
+- The APK is published under `/srv/downloads/builds/app-release-b76eff896036.apk`; `/srv/downloads/release.apk` and the versioned nginx link point to it. Range GET requests to both links returned `206` with the requested byte. APK SHA-256 is `b76eff89603610008c5e0010a865dc70336e9649868725397d1b2e9503ff5811` both before and after publication.
 - No live-site preparation/download or on-device UI/gesture run was performed for this release. The broader code review remains open.
 
 ## Reliability and security

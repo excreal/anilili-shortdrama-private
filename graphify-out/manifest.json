@@ -6,9 +6,9 @@
     "semantic_hash": ""
   },
   "app/build.gradle.kts": {
-    "mtime": 1794774054.3723,
-    "seen": 1794774065.0800633,
-    "ast_hash": "80e7b9a7224227588aa535d4005dfb52",
+    "mtime": 1794774644.4985242,
+    "seen": 1794774665.2913406,
+    "ast_hash": "e0ec71b5a0c916ebdb680dae78ba88ac",
     "semantic_hash": ""
   },
   "app/schemas/com.example.animepahedl.DownloadDatabase/1.json": {
@@ -1920,9 +1920,9 @@
     "semantic_hash": ""
   },
   "docs/implementation-progress.md": {
-    "mtime": 1794267038.2459037,
-    "seen": 1794310881.0545356,
-    "ast_hash": "35bf2251612b83d7ad8eecdd0a865df0",
+    "mtime": 1794774606.9593458,
+    "seen": 1794774665.2921724,
+    "ast_hash": "ede3c18e8a0f49f8803250556811a209",
     "semantic_hash": ""
   },
   "docs/ui-consistency-and-wrapping-audit.md": {
@@ -1941,12 +1941,6 @@
     "mtime": 1794267038.2022593,
     "seen": 1794310881.0545416,
     "ast_hash": "2833329b2112fcf070994e091fbc2a81",
-    "semantic_hash": ""
-  },
-  "app/src/main/res/drawable-nodpi/launcher_foreground_art.png": {
-    "mtime": 1794267038.2024355,
-    "seen": 1794310881.0545433,
-    "ast_hash": "6a301a187c2987a026e96ddb952ee5e3",
     "semantic_hash": ""
   },
   "artifacts/ui-testing/downloads-normal.png": {
