@@ -14,10 +14,10 @@ internal fun PreparationStatusRow(status: PreparationStatus, remaining: Int, onP
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (status.automatic) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        if (status.running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         else AppSymbol(AppIcon.Download, Modifier.size(18.dp))
-        Text((if (status.totalSelected > 0) "${status.totalSelected} episodes queued · " else "") + (if (status.automatic) "$remaining remaining to prepare" else status.label), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text((if (status.totalSelected > 0) "${status.totalSelected} episodes queued · " else "") + "$remaining remaining · " + status.label.ifBlank { "Waiting to prepare links" }, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+            maxLines = 4, overflow = TextOverflow.Ellipsis)
         if (status.needsFolderAccess && onChooseFolder != null) {
             IconButton(onClick = onChooseFolder) { AppSymbol(AppIcon.Folder, description = "Choose existing downloads folder") }
         } else if (status.verificationUrl != null && onVerify != null) {
@@ -29,6 +29,9 @@ internal fun PreparationStatusRow(status: PreparationStatus, remaining: Int, onP
         Box {
             IconButton(onClick = { menu = true }) { AppSymbol(AppIcon.More, description = "Preparation actions") }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                if (!status.running && status.verificationUrl == null && !status.needsFolderAccess) {
+                    DropdownMenuItem(text = { Text("Retry preparation now") }, onClick = { menu = false; onResume() })
+                }
                 DropdownMenuItem(text = { Text("Cancel remaining episodes") }, onClick = { menu = false; onDiscard() })
             }
         }

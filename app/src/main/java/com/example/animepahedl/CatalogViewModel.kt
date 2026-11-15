@@ -6,12 +6,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
-internal enum class CatalogSource(val label: String) { DRAMATIP("Dramatip"), KISS18("Kiss18"), NARTO("Narto Drama") }
+internal enum class CatalogSource(val label: String) { DRAMATIP("Dramatip"), KISS18("Kiss18"), NARTO("Narto Drama"), HUANGGUO("Huangguo Drama") }
 
 internal object ShortDramaCatalogConfig {
-    val sources = listOf(CatalogSource.DRAMATIP, CatalogSource.KISS18, CatalogSource.NARTO)
+    val sources = listOf(CatalogSource.DRAMATIP, CatalogSource.KISS18, CatalogSource.NARTO, CatalogSource.HUANGGUO)
     val initialSource = CatalogSource.DRAMATIP
-    val supportedProviders = setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.DIRECT)
+    val supportedProviders = setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.HUANGGUO, SiteDownloadProvider.DIRECT)
 }
 
 internal data class CatalogSourceOrder(val order: List<CatalogSource>, val enabled: Set<CatalogSource>)
@@ -141,6 +141,7 @@ internal class CatalogViewModel(application: Application) : AndroidViewModel(app
         CatalogSource.DRAMATIP -> DramatipCatalog(cookieHeader = cookies::headerFor)
         CatalogSource.KISS18 -> Kiss18Catalog()
         CatalogSource.NARTO -> NartoCatalog(cookieHeader = cookies::headerFor)
+        CatalogSource.HUANGGUO -> HuangguoCatalog()
     } } }
     init {
         load(false)
@@ -163,6 +164,7 @@ internal class CatalogViewModel(application: Application) : AndroidViewModel(app
             SiteDownloadProvider.DRAMATIP -> CatalogSource.DRAMATIP
             SiteDownloadProvider.KISS18 -> CatalogSource.KISS18
             SiteDownloadProvider.NARTO -> CatalogSource.NARTO
+            SiteDownloadProvider.HUANGGUO -> CatalogSource.HUANGGUO
             else -> return
         }
         if (mapped == CatalogSource.KISS18) {
@@ -192,6 +194,7 @@ internal class CatalogViewModel(application: Application) : AndroidViewModel(app
                     }
                 }
                 var page = if (append && next != null) adapter.page(next) else if (filter != null) adapter.filter(filter.first, filter.second) else if (term.isBlank()) adapter.home() else adapter.search(term)
+                ensureActive()
                 if (!append && term.isBlank() && filter == null) {
                     items = page.items; nextUrl = page.nextUrl; displayedKey = key
                     val visited = mutableSetOf<String>()
@@ -211,6 +214,7 @@ internal class CatalogViewModel(application: Application) : AndroidViewModel(app
                 saveCache(key, CatalogPage(items, nextUrl))
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
+                ensureActive()
                 val failed = catalogFailureState(items, nextUrl, displayedKey, append, force, key)
                 items = failed.items; nextUrl = failed.nextUrl; displayedKey = failed.displayedKey
                 error = e.message ?: "Could not load this source."
@@ -227,9 +231,10 @@ internal fun isSafeMetadataFilterRoute(source: CatalogSource, kind: String, raw:
         if (url.scheme != "https" || url.username.isNotEmpty() || url.password.isNotEmpty() || url.querySize > 0 || url.fragment != null) return false
         return when (source) {
             CatalogSource.DRAMATIP -> url.host in setOf("dramatip.net", "www.dramatip.net") && kind in setOf("category", "genre") && url.encodedPath.matches(Regex("^/(?:[a-z]{2}/)?category/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$"))
-            CatalogSource.NARTO -> url.host in setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com") &&
+            CatalogSource.NARTO -> kind in setOf("genre", "tag", "category") && url.host in setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com") &&
                 url.encodedPath.matches(Regex("^/(?:genre|tag|category)/[a-zA-Z0-9_-]+(?:/page/\\d+)?/?$")) &&
-                url.encodedPath.startsWith(if (kind == "genre") "/genre/" else if (kind == "tag") "/tag/" else "/category/")
+                url.encodedPath.startsWith("/$kind/")
             CatalogSource.KISS18 -> false
+            CatalogSource.HUANGGUO -> false
         }
 }

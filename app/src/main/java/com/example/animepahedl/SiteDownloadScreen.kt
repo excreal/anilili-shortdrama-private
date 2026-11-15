@@ -297,7 +297,7 @@ private fun MetadataTermChips(
             items(unique, key = { it.url ?: it.id ?: it.name }, contentType = { "metadata-term" }) { term ->
                 val filterable = when (provider) {
                     SiteDownloadProvider.KISS18 -> kind in setOf("tag", "category", "genre")
-                    SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.NARTO -> term.url != null
+                    SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.NARTO, SiteDownloadProvider.HUANGGUO -> term.url != null
                     else -> false
                 }
                 AssistChip(onClick = { if (filterable) onExplore(kind, term) }, enabled = filterable,

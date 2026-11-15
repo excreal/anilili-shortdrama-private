@@ -14,8 +14,8 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-internal enum class SiteDownloadProvider { DRAMATIP, KISS18, NARTO, EROTICMV, KISSKH, DIRECT }
-internal val SiteDownloadProvider.isShortDrama get() = this in setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO)
+internal enum class SiteDownloadProvider { DRAMATIP, KISS18, NARTO, HUANGGUO, EROTICMV, KISSKH, DIRECT }
+internal val SiteDownloadProvider.isShortDrama get() = this in setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.HUANGGUO)
 /** Short dramas use their dedicated player; direct media uses the shared Anilili player. */
 internal val SiteDownloadProvider.usesReferencePlayer get() = !isShortDrama
 internal val SiteDownloadProvider.contentLabel get() = if (isShortDrama) "Short drama" else "Video"
@@ -73,10 +73,11 @@ internal fun siteDownloadProvider(url: HttpUrl): SiteDownloadProvider = when {
     dramaHost(url.host, "dramatip.net") -> SiteDownloadProvider.DRAMATIP
     url.host in setOf("kiss18.vip", "www.kiss18.vip") -> SiteDownloadProvider.KISS18
     url.host in setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com") -> SiteDownloadProvider.NARTO
+    url.host in setOf("huangguodrama.ai", "www.huangguodrama.ai") -> SiteDownloadProvider.HUANGGUO
     dramaHost(url.host, "eroticmv.com") -> throw IOException("Movie sources aren't included in this edition.")
     url.host in setOf("kisskh.do", "www.kisskh.do") -> throw IOException("K-drama sources aren't included in this edition.")
     isDramaHls(url) || isDramaFile(url) -> SiteDownloadProvider.DIRECT
-    else -> throw IOException("Unsupported link. Use Dramatip, Kiss18, Narto Drama, or a direct HLS/MP4/WebM URL.")
+    else -> throw IOException("Unsupported link. Use Dramatip, Kiss18, Narto Drama, Huangguo Drama, or a direct HLS/MP4/WebM URL.")
 }
 internal fun isDramaHls(url: HttpUrl) = url.encodedPath.contains(".m3u8", true)
 internal fun isDramaFile(url: HttpUrl) = listOf(".mp4", ".m4v", ".webm").any { url.encodedPath.endsWith(it, true) } ||
@@ -88,14 +89,23 @@ internal fun dramaRoute(url: HttpUrl, provider: SiteDownloadProvider): Pair<Stri
     val offset = when (provider) {
         SiteDownloadProvider.KISS18 -> { require(path.firstOrNull() in setOf("title", "watch")); 1 }
         SiteDownloadProvider.NARTO -> { require(path.take(2) == listOf("detail", "watch")); 2 }
+        SiteDownloadProvider.HUANGGUO -> {
+            val languagePrefix = if (path.firstOrNull() in setOf("en", "zh", "zh-hant", "zh-hans", "ja", "ko", "es", "pt", "id", "th", "vi")) 1 else 0
+            require(path.getOrNull(languagePrefix) in setOf("detail", "video"))
+            languagePrefix + 1
+        }
         SiteDownloadProvider.DRAMATIP -> { path.indexOf("series").also { require(it in 0..1) } + 1 }
         else -> throw IOException("This provider does not use episode routes.")
     }
     require(path.size in (offset + 1)..(offset + 2)) { "Expected a series or episode link." }
     val slug = path[offset]
     require(slug.isNotBlank())
-    val number = path.getOrNull(offset + 1)?.let { it.removePrefix(if (provider == SiteDownloadProvider.DRAMATIP) "episode-" else "").toIntOrNull()?.takeIf { n -> n in 1..10000 }
+    val number = path.getOrNull(offset + 1)?.let { it.removePrefix(if (provider == SiteDownloadProvider.DRAMATIP) "episode-" else if (provider == SiteDownloadProvider.HUANGGUO) "ep-" else "").toIntOrNull()?.takeIf { n -> n in 1..10000 }
         ?: throw IOException("Invalid episode number.") }
+    if (provider == SiteDownloadProvider.HUANGGUO) {
+        require(path[offset - 1] == "detail" || path[offset - 1] == "video")
+        if (path[offset - 1] == "detail") require(number == null) else if (number == null) return slug to 1
+    }
     return slug to number
 }
 internal fun parseSiteDownloadSelection(input: String, episodes: List<SiteDownloadEpisode>): List<SiteDownloadEpisode> {
@@ -137,10 +147,27 @@ internal fun dramaMetadata(html: String, url: HttpUrl): Pair<String, String> {
     val image = doc.selectFirst("meta[property=og:image]")?.attr("content").orEmpty()
     return title to if (image.isBlank()) "" else runCatching { dramaAbsolute(url, image) }.getOrDefault("")
 }
+internal fun parseHuangguoVariants(html: String, url: HttpUrl): List<DramaVariant> {
+    val video = Jsoup.parse(html, url.toString()).selectFirst("video[data-media-kind=episode]")
+        ?: throw IOException("Huangguo did not publish a playable episode source.")
+    val primary = video.selectFirst("source[src]")?.attr("abs:src").orEmpty().ifBlank { video.attr("data-media-backup-src") }
+    val target = runCatching { primary.toHttpUrl() }.getOrNull()
+        ?: throw IOException("Huangguo returned no supported media source.")
+    if (target.scheme != "https" || !dramaHost(target.host, "huangguodrama.ai") && !dramaHost(target.host, "huangguo.chat"))
+        throw IOException("Huangguo returned a media URL outside its approved media hosts.")
+    val backup = video.attr("data-media-backup-src").takeIf(String::isNotBlank)
+        ?.let { runCatching { dramaAbsolute(url, it) }.getOrNull() }
+        ?.takeIf { it != primary }
+    val subtitles = Jsoup.parse(html, url.toString()).select("track[src]").mapNotNull { track ->
+        runCatching { MediaSubtitle(track.attr("abs:src"), track.attr("label").ifBlank { "Subtitles" }, track.attr("srclang").ifBlank { "und" }) }.getOrNull()
+    }
+    return listOf(DramaVariant(primary, backupUrls = listOfNotNull(backup), mimeType = "video/mp4", subtitles = subtitles))
+}
 internal fun cleanDramaTitle(raw: String, provider: SiteDownloadProvider): String = when (provider) {
     SiteDownloadProvider.DRAMATIP -> raw.replace(Regex("(?i)(\\s+-\\s+watch (?:all\\s+\\d+\\s+episodes free|free online))?\\s*\\|\\s*dramatip\\s*$"), "").replace(Regex("(?i)\\s+(?:episode\\s+|E)\\d+$"), "")
     SiteDownloadProvider.KISS18 -> raw.removeSuffix(" | Kiss18").removeSuffix(" — Kiss18").removeSuffix(" — Watch Episodes").removeSuffix(" · Story & Episodes")
     SiteDownloadProvider.NARTO -> raw.removeSuffix(" - Free Streaming").replace(Regex(" Episode \\d+$"), "")
+    SiteDownloadProvider.HUANGGUO -> raw.replace(Regex("\\s*[·|]\\s*\\d+ Episodes? Available.*$", RegexOption.IGNORE_CASE), "").removeSuffix(" | Huangguo Drama")
     else -> raw
 }.trim()
 internal fun parseDramaSeries(html: String, url: HttpUrl, provider: SiteDownloadProvider, slug: String): SiteDownloadSeries {
@@ -148,7 +175,7 @@ internal fun parseDramaSeries(html: String, url: HttpUrl, provider: SiteDownload
     val title = cleanDramaTitle(rawTitle, provider).ifBlank { slug }
     val episodes = sortedMapOf<Int, SiteDownloadEpisode>()
     val base = if (provider == SiteDownloadProvider.DRAMATIP) url.newBuilder().encodedPath(url.encodedPath.trimEnd('/') + "/").build() else url
-    val selector = if (provider == SiteDownloadProvider.NARTO) "a.episode-item[href]" else "a[href]"
+    val selector = when (provider) { SiteDownloadProvider.NARTO -> "a.episode-item[href]"; SiteDownloadProvider.HUANGGUO -> "a.hg-web-play__ep[href]"; else -> "a[href]" }
     Jsoup.parse(html).select(selector).forEach { a ->
         val target = base.resolve(a.attr("href")) ?: return@forEach
         if (target.host != url.host) return@forEach

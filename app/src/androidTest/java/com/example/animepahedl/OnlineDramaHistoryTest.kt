@@ -41,7 +41,7 @@ class OnlineDramaHistoryTest {
         val episode = series.episodes.single().url
         history.register(series)
         history.save(key, episode, 1_000, duration = 10_000)
-        history.markCompleted(series)
+        history.markCompleted(series.copy(episodes = emptyList()))
         assertTrue(history.recent().isEmpty())
         assertTrue(history.watched(episode))
         history.setWatched(episode, false)

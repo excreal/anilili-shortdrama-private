@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
@@ -34,6 +35,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +85,7 @@ internal fun DramaPlayerSurface(
 ) {
     if (episodes.isEmpty()) { LaunchedEffect(Unit) { onClose() }; return }
     val context = LocalContext.current
+    val screenReaderActive = com.anilili.ui.adaptive.rememberScreenReaderActive()
     val owner = LocalLifecycleOwner.current
     val playerColors = LocalAppColors.current
     val history = remember(context) { PlaybackHistory(context) }
@@ -97,6 +102,9 @@ internal fun DramaPlayerSurface(
     val latestClose by rememberUpdatedState(onClose)
     val latestPlaybackFailure by rememberUpdatedState(onPlaybackFailure)
     val latestEpisodes by rememberUpdatedState(episodes)
+    var boosting by remember { mutableStateOf(false) }
+    var speedMenu by remember { mutableStateOf(false) }
+    var speed by remember { mutableFloatStateOf(1f) }
     var retry by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -218,9 +226,9 @@ internal fun DramaPlayerSurface(
             }
         }
     }
-    LaunchedEffect(playing, chooser, controlsVisible, scrubbing, interaction, foreground, loading, error) {
-        if (loading || error != null) controlsVisible = true
-        else if (!chooser && !scrubbing && controlsVisible && foreground) {
+    LaunchedEffect(playing, chooser, controlsVisible, scrubbing, interaction, foreground, loading, error, boosting, speedMenu, screenReaderActive) {
+        if (loading || error != null || boosting || speedMenu || screenReaderActive) controlsVisible = true
+        else if (playing && !chooser && !scrubbing && controlsVisible && foreground) {
             delay(3_000)
             controlsVisible = false
         }
@@ -239,12 +247,41 @@ internal fun DramaPlayerSurface(
                         update = { it.player = player; it.keepScreenOn = foreground && playing },
                         onRelease = { it.player = null; it.keepScreenOn = false },
                     )
-                    Box(Modifier.fillMaxSize().clickable(enabled = error == null && !loading && player != null,
-                        onClickLabel = if (!controlsVisible) "Show player controls" else if (playing) "Pause video" else "Play video") {
-                        interaction++
-                        if (!controlsVisible) controlsVisible = true
-                        else if (player?.isPlaying == true) player.pause() else player?.play()
-                    })
+                    if (!loading && error == null && player != null) Box(
+                        Modifier.fillMaxSize().semantics {
+                            onClick(label = "Show player controls") {
+                                controlsVisible = true
+                                interaction++
+                                true
+                            }
+                        }.dramaPlayerGestures(
+                            enabled = foreground,
+                            onTap = {
+                                interaction++
+                                if (!controlsVisible) controlsVisible = true
+                                else if (player.isPlaying) player.pause() else {
+                                    if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
+                                    player.play()
+                                }
+                            },
+                            onHold = {
+                                val previous = player.playbackParameters
+                                boosting = true
+                                player.setPlaybackSpeed(2f)
+                                val restore: () -> Unit = {
+                                    player.playbackParameters = previous
+                                    boosting = false
+                                }
+                                restore
+                            },
+                        ),
+                    )
+                    if (boosting) Surface(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp),
+                        shape = MaterialTheme.shapes.large, color = playerColors.playerAccent,
+                        contentColor = playerColors.onPlayerAccent) {
+                        Text("2× speed", Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.labelLarge)
+                    }
                     if (loading && error == null) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
                     else if (!playing && error == null) FilledIconButton(onClick = {
                         interaction++
@@ -304,17 +341,56 @@ internal fun DramaPlayerSurface(
                         color = Color.White.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall)
                 }
                 if (episodes.size > 1) Surface(onClick = { range = pager.settledPage / 25; chooser = true; interaction++ },
-                    shape = RoundedCornerShape(24.dp), color = Color.Black.copy(alpha = .42f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .24f)), contentColor = Color.White) {
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = .92f),
+                    contentColor = MaterialTheme.colorScheme.onSurface) {
                     Text("Episodes", Modifier.padding(horizontal = 17.dp, vertical = 10.dp),
                         style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = .92f))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { interaction++; player?.let { it.seekTo((it.currentPosition - 10_000).coerceAtLeast(0)) } },
+                    enabled = player?.isCurrentMediaItemSeekable == true) {
+                    Icon(Icons.Rounded.Replay10, contentDescription = "Rewind 10 seconds",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (player?.isCurrentMediaItemSeekable == true) 1f else .38f))
+                }
+                FilledIconButton(onClick = { interaction++; player?.let { if (it.isPlaying) it.pause() else { if (it.playbackState == Player.STATE_ENDED) it.seekTo(0); it.play() } } },
+                    enabled = player != null && !loading && error == null,
+                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = playerColors.playerAccent,
+                        contentColor = playerColors.onPlayerAccent)) {
+                    AppSymbol(if (playing) AppIcon.Pause else AppIcon.Play, description = if (playing) "Pause video" else "Play video")
+                }
+                IconButton(onClick = { interaction++; player?.let {
+                    val target = it.currentPosition + 10_000
+                    it.seekTo(if (it.duration > 0) target.coerceAtMost(it.duration) else target)
+                } }, enabled = player?.isCurrentMediaItemSeekable == true) {
+                    Icon(Icons.Rounded.Forward10, contentDescription = "Forward 10 seconds",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (player?.isCurrentMediaItemSeekable == true) 1f else .38f))
+                }
+                Box {
+                    TextButton(onClick = { speedMenu = true; interaction++ },
+                        enabled = player != null && error == null,
+                        modifier = Modifier.semantics { contentDescription = "Playback speed, ${speed} times" },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("${speed}×") }
+                    DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
+                        listOf(0.5f, 1f, 1.25f, 1.5f, 2f).forEach { value ->
+                            DropdownMenuItem(text = { Text("${value}×") }, onClick = {
+                                speed = value; player?.setPlaybackSpeed(value); speedMenu = false; interaction++
+                            })
+                        }
+                    }
                 }
             }
             if (player != null) PlayerSeekControls(player, playerColors.playerAccent, onScrub = { scrubbing = it; interaction++ })
         }
     }
     }
-    if (chooser) ModalBottomSheet(onDismissRequest = { chooser = false; controlsVisible = true; interaction++ }, containerColor = Color.Black) {
+    if (chooser) ModalBottomSheet(onDismissRequest = { chooser = false; controlsVisible = true; interaction++ }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Episodes", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             Text("${pager.settledPage + 1} / ${episodes.size}", style = MaterialTheme.typography.labelMedium)
@@ -335,8 +411,8 @@ internal fun DramaPlayerSurface(
                 val selected = index == pager.settledPage
                 Surface(onClick = { chooser = false; controlsVisible = true; interaction++; scope.launch { pager.scrollToPage(index) } },
                     modifier = Modifier.aspectRatio(1f).heightIn(min = 48.dp).semantics { contentDescription = episodes[index].label },
-                    shape = RoundedCornerShape(8.dp), color = if (selected) playerColors.playerAccent else Color(0xFF242424),
-                    contentColor = if (selected) playerColors.onPlayerAccent else Color.White) {
+                    shape = RoundedCornerShape(8.dp), color = if (selected) playerColors.playerAccent else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = if (selected) playerColors.onPlayerAccent else MaterialTheme.colorScheme.onSurface) {
                     Box(contentAlignment = Alignment.Center) { Text(episodeNumber(index), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
                 }
             }
@@ -352,32 +428,42 @@ internal fun DramaPlayerSurface(
 private fun PlayerSeekControls(player: ExoPlayer, playedColor: Color, onScrub: (Boolean) -> Unit) {
     var position by remember(player) { mutableLongStateOf(0L) }
     var duration by remember(player) { mutableLongStateOf(0L) }
+    var seekable by remember(player) { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
     var target by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(player) { while (true) { position = player.currentPosition.coerceAtLeast(0L); duration = player.duration.coerceAtLeast(0L); delay(500) } }
+    val latestOnScrub by rememberUpdatedState(onScrub)
+    DisposableEffect(player) {
+        onDispose { latestOnScrub(false) }
+    }
+    LaunchedEffect(player) { while (true) { position = player.currentPosition.coerceAtLeast(0L); duration = player.duration.coerceAtLeast(0L); seekable = player.isCurrentMediaItemSeekable; delay(500) } }
     val fraction = if (dragging) target else if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val latestDuration by rememberUpdatedState(duration)
     fun fractionAt(x: Float, width: Float, inset: Float): Float = ((x - inset) / (width - 2 * inset).coerceAtLeast(1f)).coerceIn(0f, 1f)
     fun seek(value: Float) {
-        if (latestDuration > 0) player.seekTo((value.coerceIn(0f, 1f) * latestDuration).toLong())
+        if (value.isFinite() && latestDuration > 0 && player.isCurrentMediaItemSeekable) player.seekTo((value.coerceIn(0f, 1f) * latestDuration).toLong())
     }
     Canvas(Modifier.fillMaxWidth().height(48.dp)
         .semantics {
             contentDescription = "Video position"
             progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
-            if (duration <= 0) disabled()
-            setProgress { value -> if (latestDuration <= 0) false else { seek(value); true } }
+            if (duration <= 0 || !seekable) disabled()
+            setProgress { value -> if (!value.isFinite() || latestDuration <= 0 || !player.isCurrentMediaItemSeekable) false else { seek(value); true } }
         }
-        .pointerInput(player, duration) {
-            if (duration > 0) detectTapGestures { offset -> onScrub(false); seek(fractionAt(offset.x, size.width.toFloat(), 8.dp.toPx())) }
+        .pointerInput(player, duration, seekable) {
+            if (duration > 0 && seekable) detectTapGestures { offset -> onScrub(false); seek(fractionAt(offset.x, size.width.toFloat(), 8.dp.toPx())) }
         }
-        .pointerInput(player, duration) {
-            if (duration > 0) detectHorizontalDragGestures(
-                onDragStart = { offset -> dragging = true; onScrub(true); target = fractionAt(offset.x, size.width.toFloat(), 8.dp.toPx()) },
-                onHorizontalDrag = { change, _ -> change.consume(); target = fractionAt(change.position.x, size.width.toFloat(), 8.dp.toPx()) },
-                onDragEnd = { seek(target); dragging = false; onScrub(false) },
-                onDragCancel = { dragging = false; onScrub(false) },
-            )
+        .pointerInput(player, duration, seekable) {
+            try {
+                if (duration > 0 && seekable) detectHorizontalDragGestures(
+                    onDragStart = { offset -> dragging = true; onScrub(true); target = fractionAt(offset.x, size.width.toFloat(), 8.dp.toPx()) },
+                    onHorizontalDrag = { change, _ -> change.consume(); target = fractionAt(change.position.x, size.width.toFloat(), 8.dp.toPx()) },
+                    onDragEnd = { seek(target); dragging = false; onScrub(false) },
+                    onDragCancel = { dragging = false; latestOnScrub(false) },
+                )
+            } finally {
+                dragging = false
+                latestOnScrub(false)
+            }
         }) {
         val left = 8.dp.toPx()
         val right = (size.width - left).coerceAtLeast(left)

@@ -26,7 +26,13 @@ internal class PlaybackHistory(context: Context, preferenceName: String = "playb
         preferences.edit().remove("meta:${hash(key)}").apply()
     }
     fun markCompleted(series: SiteDownloadSeries) {
-        series.episodes.forEach { markWatched(it.url) }
+        val episodes = (metadata(series)?.episodes.orEmpty() + series.episodes).distinctBy { it.url }
+        val editor = preferences.edit()
+        episodes.forEach {
+            val episodeHash = hash(it.url)
+            editor.putBoolean("w:$episodeHash", true).putLong("p:$episodeHash", 0L)
+        }
+        editor.apply()
     }
     fun fraction(key: String): Float {
         if (watched(key)) return 1f

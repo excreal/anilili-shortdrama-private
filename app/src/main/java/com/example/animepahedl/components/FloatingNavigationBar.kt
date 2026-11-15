@@ -1,6 +1,5 @@
 package com.example.animepahedl.components
 
-import android.os.Build
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
@@ -152,9 +151,7 @@ fun FloatingNavigationBar(
             .padding(bottom = bottomInset + FloatingNavBarMargin),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        // RenderEffect arrived in Android 12; below it Haze only lays a flat scrim, which is worse
-        // than the painted glass, so older phones keep that.
-        val blurred = backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        val blurred = backdrop != null
         val inner = maxWidth - BarPadding * 2
         // Idle icons keep a thumb-sized target; whatever they leave is the ceiling on the pill, so
         // a long label ("Calendario") ellipsizes on a narrow phone instead of pushing icons off.
@@ -174,7 +171,7 @@ fun FloatingNavigationBar(
                         // A third of the resolution: the blur discards that detail anyway. On an
                         // S25 it cut the GPU 90th percentile while scrolling from 10ms to 6ms
                         // (painted glass: 4ms) with no visible difference.
-                        Modifier.hazeEffect(backdrop!!, barBlur()) { inputScale = HazeInputScale.Fixed(0.33f) }
+                        Modifier.hazeEffect(backdrop, barBlur()) { inputScale = HazeInputScale.Fixed(0.33f) }
                     } else {
                         Modifier.background(barGlass())
                     },
@@ -212,7 +209,7 @@ fun FloatingNavDisc(
     backdrop: HazeState? = null,
     icon: @Composable () -> Unit,
 ) {
-    val blurred = backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val blurred = backdrop != null
     Box(
         modifier = modifier
             .size(FloatingNavDiscSize)
@@ -220,7 +217,7 @@ fun FloatingNavDisc(
             .clip(CircleShape)
             .then(
                 if (blurred) {
-                    Modifier.hazeEffect(backdrop!!, barBlur()) { inputScale = HazeInputScale.Fixed(0.33f) }
+                    Modifier.hazeEffect(backdrop, barBlur()) { inputScale = HazeInputScale.Fixed(0.33f) }
                 } else {
                     Modifier.background(barGlass())
                 },

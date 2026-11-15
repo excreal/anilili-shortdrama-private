@@ -5,7 +5,6 @@ import androidx.core.net.toUri
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
-import android.webkit.CookieManager
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadRequest
@@ -214,46 +213,37 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
     }
     private suspend fun enqueueLocked(identity: DownloadIdentity, unresolved: ResolvedMedia, previous: ExportRecord?): String {
         if (!hasOutputFolderAccess(app)) throw OutputFolderAccessRequired()
-        if (previous == null) Exports.all(app).entries.firstOrNull { (id, record) -> !Exports.deleting(id) && (record.identity?.key == identity.key || id == identity.key) }?.let { return it.key }
-        val media = if (identity.isSiteDownload) MediaRequests.available(unresolved, SiteDownloadCookieStore(app)::headerFor) else {
-            network.checkMedia(unresolved.url)
-            unresolved.copy(headers = mapOf("Referer" to "https://kwik.cx/") + unresolved.headers.orEmpty())
+        val downloadIndex = withContext(Dispatchers.Main.immediate) { OfflineDownloads.manager(app).downloadIndex }
+        if (previous == null) Exports.all(app).entries.firstOrNull { (id, record) -> !Exports.deleting(id) && (record.identity?.key == identity.key || id == identity.key) }?.let { existing ->
+            if (existing.value.uri.isNotBlank() || withContext(Dispatchers.IO) { downloadIndex.getDownload(existing.key) != null })
+                return existing.key
         }
+        val media = MediaRequests.forDownload(identity, unresolved, SiteDownloadCookieStore(app)::headerFor)
         val title = identity.anime.title + (if (identity.isSingleVideo) "" else " · Episode ${identity.episode.number}") + " · ${media.quality} · ${audioTag(media.audio)}"
         val record = previous?.copy(title = title, showTitle = identity.anime.title, episodeNumber = identity.episode.number,
             quality = media.quality, audio = media.audio, error = "", uri = "", identity = identity, media = media)
             ?: ExportRecord(title, settings.outputTree, settings.outputFolder, thumbnail = identity.anime.poster,
                 audio = media.audio, quality = media.quality, showTitle = identity.anime.title, episodeNumber = identity.episode.number, identity = identity, media = media)
-        if (media.isHls() || identity.isSiteDownload) {
-            if (media.isHls()) require(java.io.File(app.applicationInfo.nativeLibraryDir, "libffmpeg_exec.so").exists()) { "Saving HLS requires an ARM64 device. This device cannot run the bundled exporter." }
-            // Media3 also handles SiteDownload MP4s so its scoped interceptor controls every redirect.
-            val id = identity.key
-            val mime = if (media.isHls()) MimeTypes.APPLICATION_M3U8 else media.mimeType ?: MimeTypes.VIDEO_MP4
-            val request = DownloadRequest.Builder(id, (media.url).toUri()).setMimeType(mime).setData(title.toByteArray()).build()
-            Exports.put(app, id, record)
-            DownloadStore.flush()
-            DownloadService.sendAddDownload(app, OfflineDownloadService::class.java, request, true)
-            Exports.start(app)
-            return id
-        }
-        val stagingName = "${java.util.UUID.randomUUID()}.${if ((media.url).toUri().path.orEmpty().endsWith(".webm", true)) "webm" else "mp4"}"
-        DownloadStore.operation(stagingName, "direct-enqueue", com.google.gson.Gson().toJson(record))
-        DownloadStore.flush()
-        val request = DownloadManager.Request((media.url).toUri()).setTitle(title)
-            .setDestinationInExternalFilesDir(app, "direct-temp", stagingName)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        mediaRequestHeaders(media).forEach { (name, value) -> request.addRequestHeader(name, value) }
-        if (!identity.isSiteDownload && media.headers.orEmpty().keys.none { it.equals("Cookie", true) })
-            CookieManager.getInstance().getCookie(media.url)?.let { request.addRequestHeader("Cookie", it) }
-        if (settings.unmeteredOnly) request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI)
-        request.setAllowedOverRoaming(false)
-        val number = withContext(Dispatchers.IO) { (app.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request) }
-        val id = "direct:$number"
+        if (media.isHls()) require(java.io.File(app.applicationInfo.nativeLibraryDir, "libffmpeg_exec.so").exists()) { "Saving HLS requires an ARM64 device. This device cannot run the bundled exporter." }
+        // Media3 also handles SiteDownload MP4s so its scoped interceptor controls every redirect.
+        val id = identity.key
+        val mime = if (media.isHls()) MimeTypes.APPLICATION_M3U8 else media.mimeType ?: MimeTypes.VIDEO_MP4
+        val request = DownloadRequest.Builder(id, (media.url).toUri()).setMimeType(mime).setData(title.toByteArray()).build()
         Exports.put(app, id, record)
-        withContext(Dispatchers.IO) { DownloadStore.operation(number.toString(), "direct", title) }
         DownloadStore.flush()
-        DownloadStore.operation(stagingName, "direct-enqueue", null)
-        DownloadStore.flush()
+        if (previous != null) app.getSharedPreferences("download-retries", Context.MODE_PRIVATE).edit {
+            remove(id)
+            remove("attempts:$id")
+        }
+        DownloadService.sendAddDownload(app, OfflineDownloadService::class.java, request, true)
+        // Keep the preparation journal until Media3 has durably accepted the request.
+        // A process death after writing ExportRecord must not strand a metadata-only row.
+        val accepted = withTimeoutOrNull(15_000) {
+            while (withContext(Dispatchers.IO) { downloadIndex.getDownload(id) == null }) delay(100)
+            true
+        }
+        if (accepted != true) throw java.io.IOException("The download engine did not accept this episode. Retry preparation.")
+        Exports.start(app)
         return id
     }
     override suspend fun retry(id: String) {

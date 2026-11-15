@@ -5,16 +5,23 @@ import android.app.Application
 import android.webkit.WebSettings
 import kotlinx.coroutines.*
 
-class AnimeApplication : Application(), coil.ImageLoaderFactory {
+class AnimeApplication : Application(), coil.ImageLoaderFactory, androidx.work.Configuration.Provider {
+    override val workManagerConfiguration: androidx.work.Configuration
+        get() = androidx.work.Configuration.Builder()
+            // IDs 10 and 11 belong to Media3 scheduling and persisted download retries.
+            .setJobSchedulerJobIdRange(1_000, 10_000)
+            .build()
+
     override fun newImageLoader(): coil.ImageLoader {
         // Image requests must never inherit AnimePahe cookies or its default Referer.
         val cookies = SiteDownloadCookieStore(this)
-        val dispatcher = okhttp3.Dispatcher().apply { maxRequests = 6; maxRequestsPerHost = 3 }
+        val dispatcher = okhttp3.Dispatcher().apply { maxRequests = 12; maxRequestsPerHost = 5 }
         val client = okhttp3.OkHttpClient.Builder().dispatcher(dispatcher)
             .cookieJar(okhttp3.CookieJar.NO_COOKIES)
-            .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(25, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(35, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val request = chain.request()
                 val fallback = dramatipPublicPosterUrl(request.url)
@@ -43,13 +50,8 @@ class AnimeApplication : Application(), coil.ImageLoaderFactory {
         val lowRam = (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice
         val free = runCatching { android.os.StatFs(cacheDir.absolutePath).availableBytes }.getOrDefault(640L * 1024 * 1024)
         val diskBytes = (free / 20).coerceIn(32L * 1024 * 1024, 256L * 1024 * 1024)
-        val imageDispatcher = okhttp3.Dispatcher().apply { maxRequests = 12; maxRequestsPerHost = 5 }
-        val imageClient = client.newBuilder().dispatcher(imageDispatcher).retryOnConnectionFailure(true)
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(25, java.util.concurrent.TimeUnit.SECONDS)
-            .callTimeout(35, java.util.concurrent.TimeUnit.SECONDS).build()
         return coil.ImageLoader.Builder(this)
-            .okHttpClient(imageClient)
+            .okHttpClient(client)
             .memoryCache { coil.memory.MemoryCache.Builder(this).maxSizePercent(if (lowRam) .08 else .12).build() }
             .diskCache { coil.disk.DiskCache.Builder().directory(cacheDir.resolve("images")).maxSizeBytes(diskBytes).build() }
             .crossfade(150)

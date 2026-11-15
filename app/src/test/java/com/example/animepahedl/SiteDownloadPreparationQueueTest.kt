@@ -4,6 +4,19 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SiteDownloadPreparationQueueTest {
+    @Test fun onlyActiveEpisodeShowsPreparingAndPauseOverridesStaleProgress() {
+        val pending = batch(SiteDownloadProvider.NARTO, "show", listOf(episode("1"), episode("2", 2)))
+        val status = PreparationStatus(pending = true, running = true,
+            activeRowId = pendingEpisodeRowId(pending.series, pending.episodes.first()))
+        val rows = mergePreparedQueueRows(emptyList(), pending, status)
+        assertEquals("Preparing download link", rows[0].explanation)
+        assertEquals("Queued · waiting for earlier episodes", rows[1].explanation)
+        val paused = mergePreparedQueueRows(emptyList(), pending,
+            status.copy(paused = true, label = "Preparation stopped after repeated failures"))
+        assertEquals(listOf("Preparation stopped after repeated failures", "Preparation stopped after repeated failures"),
+            paused.map { it.explanation })
+    }
+
     private fun series(provider: SiteDownloadProvider, id: String, title: String = id) =
         SiteDownloadSeries(provider, id, title, "", "https://example.test/$id", emptyList())
 

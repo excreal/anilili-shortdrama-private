@@ -90,6 +90,13 @@ private fun CatalogSourceSettingRow(title: String, description: String, value: S
 
 @Composable
 internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownloadViewModel, images: ImageLoader, onChooseFolder: () -> Unit, onPlay: (DownloadRow) -> Unit, onRemove: (String) -> Unit) {
+    var verificationUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    verificationUrl?.let { url ->
+        SessionBrowser(url, onClose = { verified ->
+            verificationUrl = null
+            if (verified && siteDownload.preparationStatus.verificationUrl == url) siteDownload.resumePreparation()
+        })
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var openGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteGroup by remember { mutableStateOf<List<DownloadRow>?>(null) }
@@ -190,7 +197,8 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
         }
         siteDownload.pending?.let { pending -> item(key = "site-preparation", contentType = "preparation-status") {
             PreparationStatusRow(siteDownload.preparationStatus, pending.batches().sumOf { it.episodes.size }, siteDownload::pausePreparation,
-                siteDownload::resumePreparation, siteDownload::discardPreparation, onChooseFolder = onChooseFolder)
+                siteDownload::resumePreparation, siteDownload::discardPreparation,
+                onVerify = { verificationUrl = siteDownload.preparationStatus.verificationUrl }, onChooseFolder = onChooseFolder)
         } }
         model.downloadNotice?.let { notice -> item(contentType = "download-notice") {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -240,8 +248,8 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     groups.forEach { (groupId, episodes) ->
                         val title = episodes.first().showTitle.ifBlank { episodes.first().title.substringBefore(" · ") }
-                        val progress = downloadGroupProgress(episodes, siteDownload.preparing &&
-                            siteDownload.pending?.series?.let { "sites:${it.provider.name}:${it.id}" } == groupId)
+                        val progress = downloadGroupProgress(episodes, siteDownload.preparationStatus.running &&
+                            siteDownload.pending?.batches()?.any { "sites:${it.series.provider.name}:${it.series.id}" == groupId } == true)
                         val selected = episodes.count { it.id in model.selectedDownloadIds }
                         val bytes = episodes.sumOf { it.bytes }
                         val lastEpisode = playbackHistory.lastEpisode("series:${groupId.removePrefix("sites:")}")

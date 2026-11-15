@@ -21,11 +21,26 @@ class SiteDownloadSourcesTest {
     @Test fun identifiersRequireSupportedLinksAndExcludeTikTok() {
         assertEquals(SiteDownloadProvider.KISS18, siteDownloadProvider(siteDownloadInput("https://kiss18.vip/watch/story/4")))
         assertEquals("story" to 4, dramaRoute(siteDownloadInput("https://kiss18.vip/watch/story/4"), SiteDownloadProvider.KISS18))
+        assertEquals(SiteDownloadProvider.HUANGGUO, siteDownloadProvider(siteDownloadInput("https://huangguodrama.ai/en/detail/112002/")))
+        assertEquals("112002" to 1, dramaRoute(siteDownloadInput("https://huangguodrama.ai/en/video/112002/"), SiteDownloadProvider.HUANGGUO))
+        assertEquals("112002" to 2, dramaRoute(siteDownloadInput("https://huangguodrama.ai/en/video/112002/ep-2/"), SiteDownloadProvider.HUANGGUO))
         assertTrue(runCatching { siteDownloadInput("123") }.isFailure)
         assertTrue(runCatching { siteDownloadProvider(siteDownloadInput("https://www.tiktok.com/shortdrama/episode/123/1")) }.isFailure)
         assertTrue(runCatching { siteDownloadProvider(siteDownloadInput("https://kiss18.vip.evil.test/watch/story/1")) }.isFailure)
         assertTrue(runCatching { siteDownloadInput("file:///etc/passwd") }.isFailure)
         assertTrue(runCatching { siteDownloadInput("https://user:secret@kiss18.vip/") }.isFailure)
+    }
+    @Test fun huangguoParsesPublishedEpisodesAndPrimaryAndBackupMedia() {
+        val base = "https://huangguodrama.ai/en/detail/112002/".toHttpUrl()
+        val html = """<meta property="og:title" content="The Maid for the CEO · 8 Episodes Available | Huangguo Drama"><meta property="og:image" content="https://huangguo.chat/poster.jpg"><a class="hg-web-play__ep" href="/en/video/112002/">Episode 1</a><a class="hg-web-play__ep" href="/en/video/112002/ep-2/">Episode 2</a><video data-media-kind="episode" data-media-backup-src="https://huangguo.chat/motion/drama-episodes/backup.mp4"><source src="https://media.huangguodrama.ai/motion/drama-episodes/primary.mp4" type="video/mp4"><track kind="subtitles" src="https://huangguodrama.ai/subs/1.vtt" srclang="en" label="English"></video>"""
+        val series = parseDramaSeries(html, base, SiteDownloadProvider.HUANGGUO, "112002")
+        assertEquals("The Maid for the CEO", series.title)
+        assertEquals(listOf(1, 2), series.episodes.map { it.number })
+        val variants = parseHuangguoVariants(html, "https://huangguodrama.ai/en/video/112002/".toHttpUrl())
+        assertEquals("https://media.huangguodrama.ai/motion/drama-episodes/primary.mp4", variants.single().url)
+        assertEquals("https://huangguo.chat/motion/drama-episodes/backup.mp4", variants.single().backupUrls.single())
+        assertEquals("en", variants.single().subtitles.single().language)
+        assertTrue(runCatching { parseHuangguoVariants("<video data-media-kind=episode><source src='https://evil.test/a.mp4'></video>", base) }.isFailure)
     }
     @Test fun dramaSeriesUsesKnownEpisodesAndRejectsForeignLinks() {
         val body = """<meta property="og:title" content="A Show | Dramatip"><a href="episode-2">2</a><a href="https://evil.test/series/a/episode-3">3</a><script>{"epCount":99,"serial_number":1}</script>"""

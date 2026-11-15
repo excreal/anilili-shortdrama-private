@@ -36,6 +36,16 @@ internal object MediaRequests {
     private val client = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(40, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build()
 
+    suspend fun forDownload(identity: DownloadIdentity, media: ResolvedMedia,
+        cookieHeader: ((String) -> String)? = null): ResolvedMedia {
+        // Narto declares the media type in its episode metadata. Its gateway must be
+        // opened by the downloader itself, just as it is by the player: probing can
+        // consume a short-lived redirect and persist a URL that has already expired.
+        if (identity.isSiteDownload && identity.anime.session.startsWith("sites:NARTO:") &&
+            (media.isHls() || media.mimeType in setOf("video/mp4", "video/webm"))) return media
+        return available(media, cookieHeader)
+    }
+
     fun client(media: ResolvedMedia, cookieHeader: ((String) -> String)? = null): OkHttpClient = client.newBuilder().addNetworkInterceptor { chain ->
         val builder = chain.request().newBuilder()
         val allowed = mediaRequestHeaders(media, chain.request().url.toString())

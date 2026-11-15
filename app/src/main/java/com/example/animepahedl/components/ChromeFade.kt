@@ -6,7 +6,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
@@ -59,13 +58,6 @@ val AppChromeFade = Brush.verticalGradient(
 @Composable
 fun Modifier.chromeFade(overHero: Boolean, backdrop: HazeState? = null): Modifier {
     val backingColor = MaterialTheme.colorScheme.background
-    val backing = remember(backingColor) {
-        Brush.verticalGradient(
-            0f to backingColor,
-            0.86f to backingColor,
-            1f to backingColor.copy(alpha = 0f),
-        )
-    }
     val settled by animateFloatAsState(
         targetValue = if (overHero) 0f else 1f,
         animationSpec = tween(200),
@@ -78,7 +70,7 @@ fun Modifier.chromeFade(overHero: Boolean, backdrop: HazeState? = null): Modifie
     val frosted = backdrop != null && backdropBlurAvailable
     val glass = if (frosted) {
         Modifier.hazeEffect(
-            backdrop!!,
+            backdrop,
             HazeStyle(
                 backgroundColor = backingColor,
                 tint = HazeTint(backingColor.copy(alpha = .55f)),

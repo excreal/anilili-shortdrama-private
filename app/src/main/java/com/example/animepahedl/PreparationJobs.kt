@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 internal data class PreparationStatus(val pending: Boolean = false, val paused: Boolean = false,
     val label: String = "", val verificationUrl: String? = null, val needsFolderAccess: Boolean = false,
-    val totalSelected: Int = 0) {
+    val totalSelected: Int = 0, val running: Boolean = false, val activeRowId: String? = null) {
     val automatic get() = pending && !paused && verificationUrl == null && !needsFolderAccess
 }
 
@@ -46,16 +46,20 @@ internal object PreparationJobs {
         val paused = slot in DownloadStore.operations("preparation-paused")
         val verification = DownloadStore.operations("preparation-verification")[slot]
         val needsFolder = slot in DownloadStore.operations("preparation-folder")
-        val job = jobs.lastOrNull { !it.state.isFinished }
+        val job = jobs.firstOrNull { it.state == WorkInfo.State.RUNNING }
+            ?: jobs.firstOrNull { it.state == WorkInfo.State.ENQUEUED }
+            ?: jobs.firstOrNull { !it.state.isFinished }
         PreparationStatus(pending, paused, when {
             !pending -> ""
             needsFolder -> "Choose downloads folder to check existing videos"
-            paused -> "Link preparation paused"
+            paused -> DownloadStore.operations("preparation-error")[slot] ?: "Link preparation paused"
             verification != null -> "Verify session to continue"
             job?.state == WorkInfo.State.RUNNING -> job.progress.getString("label") ?: "Preparing links in background"
-            job != null && job.runAttemptCount > 0 -> "Retrying remaining links automatically"
+            job != null && job.runAttemptCount > 0 -> DownloadStore.operations("preparation-error")[slot] ?: "Retrying remaining links automatically"
             else -> "Preparing links · waiting for network or scheduler"
-        }, verification, needsFolder, DownloadStore.operations("preparation-total")[slot]?.toIntOrNull() ?: 0)
+        }, verification, needsFolder, DownloadStore.operations("preparation-total")[slot]?.toIntOrNull() ?: 0,
+            running = pending && job?.state == WorkInfo.State.RUNNING && !paused && verification == null && !needsFolder,
+            activeRowId = job?.progress?.getString("rowId"))
         })
     }.retryWhen { failure, _ ->
         if (failure !is Exception) false else {
@@ -72,6 +76,8 @@ internal object PreparationJobs {
             DownloadStore.operation(slot, "preparation", gson.toJson(record))
             if (record is SiteDownloadPreparation) DownloadStore.operation(slot, "preparation-total", record.batches().sumOf { it.episodes.size }.toString())
             DownloadStore.operation(slot, "preparation-generation", UUID.randomUUID().toString())
+            DownloadStore.operation(slot, "preparation-failures", null)
+            DownloadStore.operation(slot, "preparation-error", null)
             DownloadStore.operation(slot, "preparation-paused", null)
             DownloadStore.operation(slot, "preparation-verification", null)
             DownloadStore.operation(slot, "preparation-folder", null)
@@ -90,10 +96,13 @@ internal object PreparationJobs {
             val added = mergedRemaining - currentRemaining
             if (current != null && added == 0) return@withLock
             DownloadStore.operation(SITES, "preparation", gson.toJson(merged))
-            val previousTotal = DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: currentRemaining
+            val previousTotal = if (current == null) 0 else
+                DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: currentRemaining
             DownloadStore.operation(SITES, "preparation-total", (previousTotal + added).toString())
             DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
             if (current == null) {
+                DownloadStore.operation(SITES, "preparation-failures", null)
+                DownloadStore.operation(SITES, "preparation-error", null)
                 DownloadStore.operation(SITES, "preparation-paused", null)
                 DownloadStore.operation(SITES, "preparation-verification", null)
                 DownloadStore.operation(SITES, "preparation-folder", null)
@@ -110,6 +119,8 @@ internal object PreparationJobs {
             if (payload(slot) == null) return@withLock
             // A new token prevents a cancelled predecessor from changing this journal.
             DownloadStore.operation(slot, "preparation-generation", UUID.randomUUID().toString())
+            DownloadStore.operation(slot, "preparation-failures", null)
+            DownloadStore.operation(slot, "preparation-error", null)
             DownloadStore.operation(slot, "preparation-paused", null)
             DownloadStore.operation(slot, "preparation-verification", null)
             DownloadStore.operation(slot, "preparation-folder", null)
@@ -120,7 +131,10 @@ internal object PreparationJobs {
     suspend fun pause(context: Context, slot: String) = withContext(NonCancellable) {
         DownloadStore.awaitReady()
         lock(slot).withLock {
-            if (payload(slot) != null) DownloadStore.operation(slot, "preparation-paused", "1")
+            if (payload(slot) != null) {
+                DownloadStore.operation(slot, "preparation-paused", "1")
+                DownloadStore.operation(slot, "preparation-error", null)
+            }
             DownloadStore.flush()
             withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(slot)).result.get() }
         }
@@ -128,7 +142,7 @@ internal object PreparationJobs {
     suspend fun discard(context: Context, slot: String) = withContext(NonCancellable) {
         DownloadStore.awaitReady()
         lock(slot).withLock {
-            for (kind in listOf("preparation", "preparation-generation", "preparation-paused", "preparation-verification", "preparation-folder", "preparation-total"))
+            for (kind in listOf("preparation", "preparation-generation", "preparation-paused", "preparation-verification", "preparation-folder", "preparation-total", "preparation-failures", "preparation-error"))
                 DownloadStore.operation(slot, kind, null)
             DownloadStore.flush()
             withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(slot)).result.get() }
@@ -145,6 +159,16 @@ internal object PreparationJobs {
                 batch.copy(episodes = episodes).takeIf { episodes.isNotEmpty() }
             }
             if (batches.sumOf { it.episodes.size } == before) return@withLock
+            val head = record.batches().firstOrNull()?.let { batch ->
+                batch.episodes.firstOrNull()?.let { pendingEpisodeRowId(batch.series, it) }
+            }
+            if (head in ids) {
+                // Removing the failing item gives the next episode its own retry budget.
+                if (SITES in DownloadStore.operations("preparation-error"))
+                    DownloadStore.operation(SITES, "preparation-paused", null)
+                DownloadStore.operation(SITES, "preparation-failures", null)
+                DownloadStore.operation(SITES, "preparation-error", null)
+            }
             val paused = SITES in DownloadStore.operations("preparation-paused")
             DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
             val remaining = batches.sumOf { it.episodes.size }
@@ -160,9 +184,26 @@ internal object PreparationJobs {
     suspend fun save(slot: String, token: String, record: Any?): Boolean = withContext(NonCancellable) {
         lock(slot).withLock {
             if (generation(slot) != token) return@withLock false
+            DownloadStore.operation(slot, "preparation-failures", null)
+            DownloadStore.operation(slot, "preparation-error", null)
             DownloadStore.operation(slot, "preparation", record?.let(gson::toJson))
             DownloadStore.flush()
             true
+        }
+    }
+    /** Persist the retry budget so process restarts cannot create an endless retry loop. */
+    suspend fun failed(slot: String, token: String): Boolean = withContext(NonCancellable) {
+        lock(slot).withLock {
+            if (!active(slot, token)) return@withLock false
+            val failures = (DownloadStore.operations("preparation-failures")[slot]?.toIntOrNull() ?: 0) + 1
+            val retry = failures < 3
+            DownloadStore.operation(slot, "preparation-failures", failures.toString())
+            DownloadStore.operation(slot, "preparation-error", if (retry)
+                "Link preparation failed · retry $failures/2 scheduled"
+                else "Could not prepare the next link after 3 attempts. Resume to retry or remove that episode.")
+            if (!retry) DownloadStore.operation(slot, "preparation-paused", "1")
+            DownloadStore.flush()
+            retry
         }
     }
     suspend fun needsVerification(slot: String, token: String, url: String) = withContext(NonCancellable) {
@@ -198,6 +239,11 @@ internal object PreparationJobs {
             }
         }
     }
+    suspend fun continueWork(context: Context, slot: String, token: String) = withContext(NonCancellable) {
+        lock(slot).withLock {
+            if (active(slot, token)) enqueue(context, slot, ExistingWorkPolicy.APPEND_OR_REPLACE)
+        }
+    }
     private suspend fun enqueue(context: Context, slot: String, policy: ExistingWorkPolicy) {
         val request = OneTimeWorkRequestBuilder<PreparationWorker>()
             .setInputData(workDataOf("slot" to slot, "generation" to generation(slot)))
@@ -210,7 +256,7 @@ internal object PreparationJobs {
     }
 }
 
-/** Both AnimePahe and site batches survive leaving the screen and process restarts. */
+/** Site batches survive leaving the screen and process restarts. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PreparationWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     private val slot = inputData.getString("slot").orEmpty()
@@ -228,8 +274,8 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
             .setOnlyAlertOnce(true).setOngoing(true).build()
         return ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
-    private suspend fun progress(label: String) {
-        setProgress(workDataOf("label" to label))
+    private suspend fun progress(label: String, rowId: String) {
+        setProgress(workDataOf("label" to label, "rowId" to rowId))
         setForeground(foreground(label))
     }
     override suspend fun doWork(): Result {
@@ -252,43 +298,42 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
         } catch (challenge: VerificationRequired) {
             PreparationJobs.needsVerification(slot, token, challenge.browserUrl)
             Result.success()
-        } catch (_: Exception) { Result.retry() }
+        } catch (_: Exception) { failedAttempt() }
     }
     private val outputTree by lazy { AppSettings(applicationContext).outputTree }
     private val existingFiles by lazy { ExistingOutputIndex(applicationContext, outputTree) }
     private suspend fun reuseExisting(identity: DownloadIdentity): Boolean {
-        for ((id, record) in Exports.all(applicationContext)) if (record.identity?.key == identity.key && record.uri.isEmpty())
-            clearPendingVideo(applicationContext, id)
         val location = downloadLocation(identity.anime.title, identity.episode.number.takeUnless { identity.isSingleVideo },
             identity.quality, "mp4", identity.audio)
         val found = withContext(Dispatchers.IO) { existingFiles.find(location) } ?: return false
+        for ((id, record) in Exports.all(applicationContext)) if (record.identity?.key == identity.key && record.uri.isEmpty())
+            clearPendingVideo(applicationContext, id)
         adoptExistingVideo(applicationContext, identity, found, outputTree)
         return true
     }
     private suspend fun enqueue(identity: DownloadIdentity, media: ResolvedMedia) {
         val context = applicationContext
         if (reuseExisting(identity)) return
-        val exists = Exports.all(context).any { (id, record) -> !Exports.deleting(id) && (record.identity?.key == identity.key || id == identity.key) }
-        if (exists) return
         currentCoroutineContext().ensureActive()
         if (!PreparationJobs.active(slot, token)) throw CancellationException("Preparation paused or replaced")
         AndroidDownloadRepository(context, AnimeRepository()).enqueue(identity, media)
     }
+    private suspend fun failedAttempt(): Result =
+        if (PreparationJobs.failed(slot, token)) Result.retry() else Result.success()
+
     private suspend fun attempt(action: suspend () -> Unit): Boolean {
-        repeat(2) { retry ->
+        currentCoroutineContext().ensureActive()
+        if (!PreparationJobs.active(slot, token)) throw CancellationException("Preparation paused or replaced")
+        return try {
+            withTimeout(120_000) { action() }
+            true
+        } catch (_: TimeoutCancellationException) {
             currentCoroutineContext().ensureActive()
-            if (!PreparationJobs.active(slot, token)) throw CancellationException("Preparation paused or replaced")
-            try {
-                withTimeout(120_000) { action() }
-                return true
-            } catch (_: TimeoutCancellationException) { /* Retry a timed-out source, keeping the journal. */
-            } catch (folder: OutputFolderAccessRequired) { throw folder
-            } catch (challenge: VerificationRequired) { throw challenge
-            } catch (cancelled: CancellationException) { throw cancelled
-            } catch (_: Exception) { /* Retry below, then let WorkManager back off. */ }
-            if (retry == 0) delay(3_000)
-        }
-        return false
+            false
+        } catch (folder: OutputFolderAccessRequired) { throw folder
+        } catch (challenge: VerificationRequired) { throw challenge
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (_: Exception) { false }
     }
     private suspend fun prepareSites(record: SiteDownloadPreparation): Result {
         val remaining = record.batches().toMutableList()
@@ -301,7 +346,8 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
             if (android.os.SystemClock.elapsedRealtime() - start > 7 * 60_000) break
             val batch = remaining.first()
             val episode = batch.episodes.first()
-            progress(if (batch.series.isSingleVideo) "Preparing video" else "Preparing ${done + 1}/$total · ${batch.series.title} · Episode ${episode.displayNumber}")
+            progress(if (batch.series.isSingleVideo) "Preparing video" else "Preparing ${done + 1}/$total · ${batch.series.title} · Episode ${episode.displayNumber}",
+                pendingEpisodeRowId(batch.series, episode))
             if (attempt {
                 if (batch.quality == "Best" || !reuseExisting(DownloadIdentity.siteDownload(batch.series, episode, batch.quality, "und"))) {
                     val media = cookies.applyTo(repository.resolve(episode.url, batch.quality, cookies.headerFor(episode.url)))
@@ -312,8 +358,13 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
                 if (next.episodes.isEmpty()) remaining.removeAt(0) else remaining[0] = next
                 done++
                 if (!PreparationJobs.save(slot, token, record.withBatches(remaining))) return Result.success()
+            } else {
+                return failedAttempt()
             }
         }
-        return if (remaining.isEmpty()) Result.success() else Result.retry()
+        // Finishing a work slice is not a failure. A new request resets WorkManager's
+        // attempt count instead of imposing exponentially longer waits on large series.
+        if (remaining.isNotEmpty()) PreparationJobs.continueWork(applicationContext, slot, token)
+        return Result.success()
     }
 }

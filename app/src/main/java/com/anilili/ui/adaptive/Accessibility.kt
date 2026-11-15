@@ -27,15 +27,22 @@ fun rememberScreenReaderActive(): Boolean {
         manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_SPOKEN)
             .isNotEmpty()
 
-    var active by remember { mutableStateOf(screenReaderRunning()) }
+    var active by remember(manager) { mutableStateOf(screenReaderRunning()) }
     DisposableEffect(manager) {
         if (manager == null) return@DisposableEffect onDispose {}
         val listener = AccessibilityManager.AccessibilityStateChangeListener {
             active = screenReaderRunning()
         }
+        val servicesListener = AccessibilityManager.AccessibilityServicesStateChangeListener {
+            active = screenReaderRunning()
+        }
         manager.addAccessibilityStateChangeListener(listener)
+        manager.addAccessibilityServicesStateChangeListener(context.mainExecutor, servicesListener)
         active = screenReaderRunning()
-        onDispose { manager.removeAccessibilityStateChangeListener(listener) }
+        onDispose {
+            manager.removeAccessibilityStateChangeListener(listener)
+            manager.removeAccessibilityServicesStateChangeListener(servicesListener)
+        }
     }
     return active
 }

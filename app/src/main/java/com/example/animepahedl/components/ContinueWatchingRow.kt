@@ -45,7 +45,7 @@ internal fun ContinueWatchingRow(
                 Column(Modifier.width(174.dp).combinedClickable(onClick = { onOpen(item) }, onLongClick = { actionsFor = item })) {
                     Box {
                         Thumbnail(item.posterThumbnail(), item.title, images, Modifier.fillMaxWidth().aspectRatio(16f / 9f), cornerRadius = 12.dp)
-                        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .30f)))
+                        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .30f)))
                         AppSymbol(AppIcon.Play, Modifier.align(Alignment.Center))
                         IconButton(onClick = { actionsFor = item }, modifier = Modifier.align(Alignment.TopEnd)) {
                             Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${item.title}",

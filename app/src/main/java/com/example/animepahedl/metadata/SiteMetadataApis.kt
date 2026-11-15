@@ -19,6 +19,7 @@ internal class SiteMetadataApis(private val cookieHeader: ((String) -> String)? 
         SiteDownloadProvider.DRAMATIP -> MetadataSite.DRAMATIP
         SiteDownloadProvider.KISS18 -> MetadataSite.KISS18
         SiteDownloadProvider.NARTO -> MetadataSite.NARTO
+        SiteDownloadProvider.HUANGGUO -> throw IllegalArgumentException("Huangguo page metadata is read directly by the short-drama parser.")
         SiteDownloadProvider.EROTICMV, SiteDownloadProvider.KISSKH -> throw IllegalArgumentException("This source is not included in the ShortDrama edition.")
         SiteDownloadProvider.DIRECT -> throw IllegalArgumentException("A direct media URL has no site catalogue. Use the media resolver.")
     })
@@ -31,11 +32,7 @@ internal class SiteMetadataApis(private val cookieHeader: ((String) -> String)? 
         /** Reuses existing imported sessions; reading metadata never exports or retains cookies. */
         fun forApp(context: Context): SiteMetadataApis {
             val store = SiteDownloadCookieStore(context.applicationContext)
-            return SiteMetadataApis { url ->
-                val browser = android.webkit.CookieManager.getInstance().getCookie(url).orEmpty()
-                val saved = store.headerFor(url)
-                if (saved.isBlank()) browser else if (browser.isBlank()) saved else "$saved; $browser"
-            }
+            return SiteMetadataApis(store::headerFor)
         }
     }
 }

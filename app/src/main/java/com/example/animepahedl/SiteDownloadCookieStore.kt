@@ -8,7 +8,11 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 internal class SiteDownloadCookieStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences("sites-cookies", Context.MODE_PRIVATE)
     val hasCookies get() = preferences.getString("input", "").orEmpty().let { it.isNotBlank() && validSiteDownloadCookieInput(it) }
-    fun headerFor(url: String): String = siteDownloadCookieHeader(preferences.getString("input", "").orEmpty(), url)
+    fun headerFor(url: String): String {
+        val browser = android.webkit.CookieManager.getInstance().getCookie(url).orEmpty()
+        val imported = siteDownloadCookieHeader(preferences.getString("input", "").orEmpty(), url)
+        return mergeSiteDownloadCookies(imported, browser)
+    }
     fun applyTo(media: ResolvedMedia): ResolvedMedia {
         val cookie = headerFor(media.url)
         if (cookie.isBlank()) return media
@@ -21,6 +25,16 @@ internal class SiteDownloadCookieStore(context: Context) {
         preferences.edit { if (normalized.isBlank()) remove("input") else putString("input", normalized) }
     }
     fun clear() = preferences.edit { remove("input") }
+}
+
+/** Browser verification can refresh a session after import; never replace it with the saved snapshot. */
+internal fun mergeSiteDownloadCookies(imported: String, browser: String): String {
+    val merged = linkedMapOf<String, String>()
+    for (header in listOf(imported, browser)) header.split(';').forEach { part ->
+        val name = part.substringBefore('=').trim()
+        if (name.isNotEmpty() && '=' in part) merged[name] = part.substringAfter('=').trim()
+    }
+    return merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
 }
 
 /** Preserve tab-delimited empty values while accepting standard Windows line endings. */

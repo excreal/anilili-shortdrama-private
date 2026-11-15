@@ -8,15 +8,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CatalogViewModelTest {
+    @Test fun nartoFiltersMustMatchSupportedRouteKind() {
+        val category = "https://edge.narto-drama.com/category/romance"
+        assertTrue(isSafeMetadataFilterRoute(CatalogSource.NARTO, "category", category))
+        assertFalse(isSafeMetadataFilterRoute(CatalogSource.NARTO, "actor", category))
+        assertFalse(isSafeMetadataFilterRoute(CatalogSource.NARTO, "director", category))
+        assertFalse(isSafeMetadataFilterRoute(CatalogSource.NARTO, "genre", category))
+        assertTrue(isSafeMetadataFilterRoute(CatalogSource.NARTO, "genre", "https://edge.narto-drama.com/genre/romance"))
+    }
+
     @Test fun shortDramaEditionExcludesMovieAndKDramaProviders() {
         assertEquals(
-            setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.DIRECT),
+            setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.HUANGGUO, SiteDownloadProvider.DIRECT),
             ShortDramaCatalogConfig.supportedProviders,
         )
     }
 
-    @Test fun shortDramaCatalogContainsOnlyItsThreeSources() {
-        assertEquals(setOf(CatalogSource.DRAMATIP, CatalogSource.KISS18, CatalogSource.NARTO), ShortDramaCatalogConfig.sources.toSet())
+    @Test fun shortDramaCatalogContainsItsSupportedSources() {
+        assertEquals(setOf(CatalogSource.DRAMATIP, CatalogSource.KISS18, CatalogSource.NARTO, CatalogSource.HUANGGUO), ShortDramaCatalogConfig.sources.toSet())
         assertEquals(ShortDramaCatalogConfig.sources.toSet(), CatalogSource.entries.toSet())
     }
 

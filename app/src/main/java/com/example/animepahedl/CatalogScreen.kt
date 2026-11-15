@@ -38,13 +38,23 @@ internal fun CatalogScreen(
     var categories by remember { mutableStateOf(true) }
     val heroBackdrop = remember { dev.chrisbanes.haze.HazeState() }
     val grid = rememberLazyGridState()
+    var previousContent by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(listOf(model.source.name, model.query, model.filterLabel.orEmpty()))
+    }
+    val contentIdentity = listOf(model.source.name, model.query, model.filterLabel.orEmpty())
+    LaunchedEffect(contentIdentity) {
+        if (previousContent != contentIdentity) {
+            grid.scrollToItem(0)
+            previousContent = contentIdentity
+        }
+    }
     val phoneCardWidth = ((LocalConfiguration.current.screenWidthDp - 62) / 3.35f).coerceIn(108f, 150f).dp
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(model.source) { mutableStateOf(emptyList<String>()) }
     // Keep the short-drama catalog at the original dense poster size on phones.
     val columns = if (LocalConfiguration.current.screenWidthDp >= 600) 4 else 3
     val searchSourceName = model.source.label
-    LaunchedEffect(grid, model.items.size, model.loading, browseMode) {
-        snapshotFlow { browseMode && model.items.isNotEmpty() && !model.loading && model.nextUrl != null &&
+    LaunchedEffect(grid, model.items.size, model.loading, model.error, browseMode) {
+        snapshotFlow { browseMode && model.items.isNotEmpty() && !model.loading && model.error == null && model.nextUrl != null &&
             (grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) >= grid.layoutInfo.totalItemsCount - 5 }
             .distinctUntilChanged().collect { if (it) model.more() }
     }

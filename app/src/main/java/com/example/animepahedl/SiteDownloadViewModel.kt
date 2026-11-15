@@ -126,7 +126,7 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
                 val result = repository.inspect(request, cookies.headerFor(request))
                 ensureActive()
                 if (result.provider !in ShortDramaCatalogConfig.supportedProviders) {
-                    error = "This short-drama edition supports Dramatip, Kiss18, Narto Drama, and direct media links."
+                    error = "This short-drama edition supports Dramatip, Kiss18, Narto Drama, Huangguo Drama, and direct media links."
                     return@launch
                 }
                 if (generation == current) {

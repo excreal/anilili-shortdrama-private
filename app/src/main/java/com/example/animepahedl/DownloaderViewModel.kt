@@ -228,7 +228,6 @@ class DownloaderViewModel(application: Application, private val repository: Anim
 
     override fun onCleared() {
         savedFilesWatcher.stop()
-        super.onCleared()
     }
 
     private fun hasActiveDirectDownload(): Boolean {

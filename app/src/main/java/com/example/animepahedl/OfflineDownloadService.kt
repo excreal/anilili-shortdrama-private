@@ -132,17 +132,24 @@ object OfflineDownloads {
                     val http = causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()
                     if (download.state == Download.STATE_FAILED && challenge == null &&
                         causes.any { it is java.io.IOException } && (http == null || http.responseCode == 408 || http.responseCode == 429 || http.responseCode >= 500)) {
-                        retries.edit { putBoolean(download.request.id, true) }
-                        DownloadRetryService.schedule(app)
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            val current = manager.downloadIndex.getDownload(download.request.id)
-                            if (current?.state == Download.STATE_FAILED && current.stopReason == Download.STOP_REASON_NONE && !manager.downloadsPaused)
-                                manager.addDownload(current.request)
-                        }, 30_000)
+                        val id = download.request.id
+                        val attempts = retries.getInt("attempts:$id", 0)
+                        if (attempts < 3) {
+                            retries.edit { putInt("attempts:$id", attempts + 1); putBoolean(id, true) }
+                            DownloadRetryService.schedule(app)
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                val current = manager.downloadIndex.getDownload(id)
+                                if (retries.getBoolean(id, false) && !Exports.deleting(id) &&
+                                    current?.state == Download.STATE_FAILED && current.stopReason == Download.STOP_REASON_NONE && !manager.downloadsPaused)
+                                    manager.addDownload(current.request)
+                            }, 30_000)
+                        } else retries.edit { remove(id) }
                     }
                     if (download.state == Download.STATE_COMPLETED || download.state == Download.STATE_REMOVING ||
                         (download.state == Download.STATE_FAILED && (challenge != null || (http != null && http.responseCode in 400..499 && http.responseCode != 408 && http.responseCode != 429))))
                         retries.edit { remove(download.request.id) }
+                    if (download.state == Download.STATE_COMPLETED || download.state == Download.STATE_REMOVING)
+                        retries.edit { remove("attempts:${download.request.id}") }
                     if (download.state == Download.STATE_COMPLETED && !Exports.deleting(download.request.id)) {
                         app.getSharedPreferences("media-verification", Context.MODE_PRIVATE).edit { remove(download.request.id) }
                         if (!Exports.all(app).containsKey(download.request.id))

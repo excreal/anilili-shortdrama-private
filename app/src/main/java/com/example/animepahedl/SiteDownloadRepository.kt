@@ -21,7 +21,7 @@ internal class SiteDownloadRepository(
     private val allowedProviders: Set<SiteDownloadProvider> = ShortDramaCatalogConfig.supportedProviders
 ) {
     private val providerSession = CatalogSessionCookies()
-    private data class Page(val text: String, val url: HttpUrl)
+    private data class Page(val text: String, val url: HttpUrl, val challenge: Boolean = false)
 
     suspend fun inspect(input: String, cookie: String = ""): SiteDownloadSeries = withContext(Dispatchers.IO) {
         val url = siteDownloadInput(input)
@@ -37,6 +37,10 @@ internal class SiteDownloadRepository(
                     SiteDownloadProvider.DRAMATIP -> url.newBuilder().encodedPath("/series/$slug").query(null).build()
                     SiteDownloadProvider.KISS18 -> url.newBuilder().encodedPath("/title/$slug").query(null).build()
                     SiteDownloadProvider.NARTO -> url.newBuilder().encodedPath("/detail/watch/$slug").query(null).build()
+                    SiteDownloadProvider.HUANGGUO -> {
+                        val language = url.pathSegments.firstOrNull()?.takeIf { it in setOf("en", "zh", "zh-hant", "zh-hans", "ja", "ko", "es", "pt", "id", "th", "vi") } ?: "en"
+                        url.newBuilder().encodedPath("/$language/detail/$slug/").query(null).build()
+                    }
                     else -> error("unreachable")
                 }
                 val page = if (provider == SiteDownloadProvider.NARTO) nartoPage(target, cookie) else fetch(target, cookie = cookie)
@@ -112,6 +116,15 @@ internal class SiteDownloadRepository(
                 })
             variants
         }
+        SiteDownloadProvider.HUANGGUO -> {
+            val (id, number) = dramaRoute(url, provider)
+            if (number == null) throw IOException("Select a Huangguo episode before playing or downloading.")
+            val language = url.pathSegments.firstOrNull()?.takeIf { it in setOf("en", "zh", "zh-hant", "zh-hans", "ja", "ko", "es", "pt", "id", "th", "vi") } ?: "en"
+            val target = url.newBuilder().encodedPath("/$language/video/$id/${if (number == 1) "" else "ep-$number/"}").query(null).build()
+            val page = fetch(target, cookie = cookie)
+            validateEpisodePage(target, page.url, provider)
+            parseHuangguoVariants(page.text, page.url)
+        }
         SiteDownloadProvider.KISS18 -> kissVariants(url, cookie)
         else -> throw IOException("${provider.contentLabel} sources aren't included in this edition.")
     }
@@ -141,10 +154,10 @@ internal class SiteDownloadRepository(
     private suspend fun nartoPage(url: HttpUrl, cookie: String): Page {
         fun english(target: HttpUrl) = target.newBuilder().removeAllQueryParameters("lang").addQueryParameter("lang", "en-US").fragment(null).build()
         val page = fetch(english(url), cookie = cookie, allowChallenge = true)
-        if (!page.text.contains("Checking your browser", true)) return page
-        if (url.host == "edge.narto-drama.com") throw IOException("Narto requires browser verification.")
-        val edge = fetch(english(url.newBuilder().host("edge.narto-drama.com").build()), allowChallenge = true)
-        if (edge.text.contains("Checking your browser", true)) throw IOException("Narto requires browser verification.")
+        if (!page.challenge) return page
+        if (url.host == "edge.narto-drama.com") throw VerificationRequired(page.url.toString())
+        val edge = fetch(english(url.newBuilder().host("edge.narto-drama.com").build()), cookie = cookie, allowChallenge = true)
+        if (edge.challenge) throw VerificationRequired(edge.url.toString())
         return edge
     }
 
@@ -196,7 +209,6 @@ internal class SiteDownloadRepository(
         request.header("Referer", referer ?: url.newBuilder().encodedPath("/").query(null).fragment(null).build().toString())
         if (cookie.isNotBlank()) request.header("Cookie", cookie)
         return scoped.newCall(request.build()).consumeCancellable { response ->
-            if (!response.isSuccessful) throw IOException("HTTP ${response.code} from ${response.request.url.host}. Try again or refresh provider cookies.")
             val body = response.body
             if (body.contentLength() > limit) throw IOException("Provider metadata exceeds the size limit.")
             val bytes = body.byteStream().use { stream ->
@@ -211,8 +223,11 @@ internal class SiteDownloadRepository(
                 output.toByteArray()
             }
             val text = bytes.toString(body.contentType()?.charset(Charsets.UTF_8) ?: Charsets.UTF_8)
-            if (!allowChallenge && SessionChecks.isChallenge(text, response.header("cf-mitigated"))) throw IOException("${url.host} requires browser verification or fresh cookies.")
-            Page(text, response.request.url)
+            val challenge = SessionChecks.isChallenge(text, response.header("cf-mitigated")) ||
+                (allowChallenge && text.contains("Checking your browser", ignoreCase = true))
+            if (challenge && !allowChallenge) throw VerificationRequired(url.toString())
+            if (!response.isSuccessful && !challenge) throw IOException("HTTP ${response.code} from ${response.request.url.host}. Try again or refresh provider cookies.")
+            Page(text, response.request.url, challenge)
         }
     }
 }

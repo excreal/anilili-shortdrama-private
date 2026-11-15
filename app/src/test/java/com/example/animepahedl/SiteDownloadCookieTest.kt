@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SiteDownloadCookieTest {
+    @Test fun browserVerificationReplacesImportedSession() {
+        assertEquals("cf_clearance=fresh; account=imported; session=current=token",
+            mergeSiteDownloadCookies("cf_clearance=stale; account=imported", "cf_clearance=fresh; session=current=token"))
+        assertEquals("account=imported", mergeSiteDownloadCookies("account=imported", ""))
+        assertEquals("session=", mergeSiteDownloadCookies("session=stale", "session="))
+    }
+
     @Test fun rejectsUnscopedRawCookieHeaders() {
         for (input in listOf("Cookie: session=secret", "session=secret")) {
             assertFalse(validSiteDownloadCookieInput(input))

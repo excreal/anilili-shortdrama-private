@@ -10,7 +10,7 @@ class ReferencePlayerHostPolicyTest {
     @Test
     fun everyProviderUsesTheShortDramaBoundaryForHostPolicy() {
         SiteDownloadProvider.entries.forEach { provider ->
-            val shortDrama = provider in setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO)
+            val shortDrama = provider in setOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.HUANGGUO)
             assertEquals(shortDrama, provider.isShortDrama)
             assertEquals(!shortDrama, provider.usesReferencePlayer)
             assertEquals(!shortDrama, ReferencePlayerHostPolicy.startsFullscreen(provider, isTv = false))
@@ -45,7 +45,7 @@ class ReferencePlayerHostPolicyTest {
         assertEquals(SiteDownloadProvider.DIRECT, series?.provider)
         assertEquals("content://downloads/movie.mp4", series?.episodes?.single()?.url)
         assertEquals("row-1", series?.episodes?.single()?.id)
-        listOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO).forEach { provider ->
+        listOf(SiteDownloadProvider.DRAMATIP, SiteDownloadProvider.KISS18, SiteDownloadProvider.NARTO, SiteDownloadProvider.HUANGGUO).forEach { provider ->
             assertNull(savedLandscapeFallbackFromDownloads(
                 listOf(row.copy(showId = "sites:${provider.name}:known")), emptyMap()))
         }

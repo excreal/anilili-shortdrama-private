@@ -43,11 +43,11 @@ internal fun CatalogPosterCard(
     metadata: String? = null,
 ) {
     val context = LocalContext.current
-    var poster by remember(item.poster) { mutableStateOf(ArtworkRecovery.cached(context, item.url, item.poster)) }
-    var attempted by remember(item.poster) { mutableStateOf(false) }
+    var poster by remember(item.url, item.poster) { mutableStateOf(ArtworkRecovery.cached(context, item.url, item.poster)) }
+    var attempted by remember(item.url, item.poster) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val request = remember(context, poster, item.url) { catalogArtworkRequest(context, item.copy(poster = poster)) }
-    var failed by remember(item.poster) { mutableStateOf(item.poster.isBlank()) }
+    var failed by remember(item.url, item.poster) { mutableStateOf(item.poster.isBlank()) }
     val titleStyle = MaterialTheme.typography.labelLarge
     val titleBlockHeight = with(LocalDensity.current) { titleStyle.lineHeight.toDp() * 2 + 4.dp }
     Column(modifier.clickable(role = Role.Button, onClickLabel = "Open details", onClick = onClick)) {
