@@ -2,6 +2,15 @@
 
 Implementation follows `codebase-review-2026-11-03.md`. Changes include the initial batch and the completion pass.
 
+## Current release verification (2026-11-15)
+
+- Commit `553d9e1` contains the reviewed fixes and release version bump.
+- `./gradlew :app:testDebugUnitTest` passed (166 tests, no failures or skips); `:app:compileDebugAndroidTestKotlin` passed. Instrumentation tests were compiled but not run in this checkout because no Android device is connected.
+- `:app:lintDebug` passed with warnings and no errors. Remaining warnings include unused resource candidates, Compose/layout guidance, and the PiP source-rectangle recommendation; they are not a clean-lint result.
+- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.18.18-release.apk` (version code 18). `apksigner verify --verbose --print-certs` passed; its signing certificate matches the previously published release.
+- The APK is published under `/srv/downloads/builds/app-release-bc0749c40d8f.apk`; `/srv/downloads/release.apk` and the versioned nginx link point to it. HTTP range GET requests for both links returned 206 with the requested byte, and SHA-256 is `bc0749c40d8f66cebe72af227b3ac2c421582c3deb6b7780deb76a0cdbad282d`.
+- No live-site preparation/download or on-device UI/gesture run was performed for this release. The broader code review remains open.
+
 ## Reliability and security
 
 - R1: committed-only download snapshots, ordered retry journal, persistence health surfaced in the UI, and a regression test proving failed writes cannot be bypassed. Deletion tombstones remain immediately visible and must flush before destructive work.
@@ -34,15 +43,14 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 - The 24-minute synthetic H.264/AAC fixture remuxed in 7.821 seconds. A separate export took 7.121 seconds. Host ffprobe confirmed video duration 1440.000 seconds, audio duration 1440.055 seconds, and a 4,330,417-byte MP4. This small 160×90 fixture checks duration/track retention and orchestration, not typical full-resolution throughput.
 - The latest debug APK was installed. Test media was removed and the phone's original plugged-in screen-on setting restored.
 
-- Debug app/test APK builds passed; the installed debug build passed the device checks above. Lint completed with **No issues found**.
-- The release build was cancelled at the user's request during R8 optimization. Its compilation and native stripping had passed, but final release packaging is not verified. The final unit-only rerun after removing a redundant test `!!` was not performed following cancellation.
-- The current build emitted no Unsafe, vulnerable-Protobuf, Gradle deprecation, or native-stripping warnings before cancellation. Its one unnecessary-null-assertion compiler warning was corrected in source.
+- Historical device checks below were run on an earlier revision and do not verify the current release. Current release validation is recorded above.
 
 Live-site compatibility, OEM-specific service limits, and arbitrary cloud-provider behavior cannot be established by local fixtures alone. No claim is made that a static audit proves absence of all defects.
 
 ## Latest user corrections
 
 - Removed year/type and download-status filters. Search and library expose sorting only; quality/audio remain download source choices, and connection counts remain settings.
+- The original U3 finding about absent year/type filters is superseded by the user's explicit removal of those filters; the old review finding is historical, not an outstanding feature request.
 - Removed the obsolete Transformer/direct-remux test code and dependencies, including deprecated muxer/extractor constructors. Export fixtures now use the production FFmpeg implementation.
 - Updated host Protobuf Java/Java-util to 4.36.0 through dependency resolution, covering both plugin and project tool configurations. This addresses Unsafe use in standard Java messages on JDK 25 without warning suppression or a JDK downgrade.
 - Updated AndroidX Test to the documented stable runner 1.7.0, JUnit extension 1.3.0, and Espresso 3.7.0.
