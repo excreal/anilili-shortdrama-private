@@ -4,6 +4,7 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-16)
 
+- Release 1.2.28 signed build and release lint-vital passed. APK signer matches `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`; APK SHA-256 is `11519b74151a167a999d394a69c726a873296944ad258aafb8e20c12942ce0d2`. Published `/srv/downloads/builds/app-release-11519b74151a.apk` matches the build. Current and versioned nginx symlinks serve HTTP 206 for byte-range requests. Application changes were pushed to GitHub main as `209eb6b`.
 - Release 1.2.28 (version code 28) removes the global preparation summary from Downloads. Active preparation uses the affected episode’s indeterminate progress bar and status; recovery actions live in that episode’s menu. Narto cookie reset from an episode preserves other manually paused episodes. The unused batch status component is removed.
 - Supported site downloads no longer create session-verification errors or browser prompts. Unavailable provider pages and ad gates use each episode’s persisted retry budget (three attempts, with WorkManager backoff) before manual retry. Recovery clears old verification blockers; existing transfer records with stale verification markers expose fresh-link Retry instead.
 - `:app:testDebugUnitTest` passed (176 tests, zero failures/errors/skips); `:app:lintDebug` passed. No on-device UI or live-provider download check was performed.
