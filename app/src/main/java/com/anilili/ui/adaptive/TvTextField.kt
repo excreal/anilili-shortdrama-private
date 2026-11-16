@@ -360,16 +360,8 @@ private fun EditText.disableSelectionActionMode() {
         override fun onDestroyActionMode(mode: android.view.ActionMode?) = Unit
     }
     customSelectionActionModeCallback = refuse
-    // Selection callbacks go back to API 11, but the *insertion* one arrived in API 23. minSdk is
-    // 22 because Fire OS 5 sticks report exactly that, and on one (AFTT, Android 5.1.1) this line
-    // threw NoSuchMethodError the moment the field entered composition — a fatal crash on every
-    // screen with a text box.
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-        customInsertionActionModeCallback = refuse
-    }
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-        setTextClassifier(android.view.textclassifier.TextClassifier.NO_OP)
-    }
+    customInsertionActionModeCallback = refuse
+    setTextClassifier(android.view.textclassifier.TextClassifier.NO_OP)
 }
 
 private fun hideNativeTvKeyboard(editor: SafeTvEditText) {

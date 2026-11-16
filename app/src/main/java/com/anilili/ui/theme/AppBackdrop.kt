@@ -34,9 +34,9 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -104,9 +104,9 @@ internal fun ProvideAppBackdrop(content: @Composable () -> Unit) {
     }
     val context = LocalContext.current
     val view = LocalView.current
-    val configuration = LocalConfiguration.current
+    val windowSize = LocalWindowInfo.current.containerSize
     var backdrop by remember { mutableStateOf<AppBackdrop?>(null) }
-    LaunchedEffect(url, dim, blur, configuration.screenWidthDp, configuration.screenHeightDp) {
+    LaunchedEffect(url, dim, blur, windowSize) {
         if (url == null) {
             backdrop = null
             return@LaunchedEffect

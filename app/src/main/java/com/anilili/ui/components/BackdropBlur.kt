@@ -1,6 +1,5 @@
 package com.anilili.ui.components
 
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,7 +21,7 @@ import com.anilili.ui.adaptive.LocalAppDeviceProfile
  * Whether a live blur can be drawn here: RenderEffect arrived in Android 12, and below it Haze can
  * only lay a flat scrim, which is worse than the painted translucency every caller already has.
  */
-val backdropBlurAvailable: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+const val backdropBlurAvailable: Boolean = true
 
 /**
  * Whether [section] draws live glass right now: the viewer has not switched it off in Appearance,

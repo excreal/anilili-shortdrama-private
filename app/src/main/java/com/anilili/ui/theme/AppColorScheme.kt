@@ -1,7 +1,6 @@
 package com.anilili.ui.theme
 
 import android.content.Context
-import android.os.Build
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Immutable
@@ -75,15 +74,11 @@ val LocalAppColors = staticCompositionLocalOf { appColors(ThemeSpec(), wallpaper
  * Televisions are excluded by the caller — their launchers carry no wallpaper to theme from.
  */
 fun wallpaperSeed(context: Context): Int? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        context.getColor(android.R.color.system_accent1_500)
-    } else {
-        null
-    }
+    context.getColor(android.R.color.system_accent1_500)
 
 /** Whether "From wallpaper" can mean anything on this device. */
 fun wallpaperAccentAvailable(isTv: Boolean): Boolean =
-    !isTv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    !isTv
 
 /** The colour a picker swatch shows for [accent]. */
 fun ThemeAccent.swatch(wallpaperSeed: Int?, customSeed: Int = DEFAULT_CUSTOM_SEED): Color = when {
@@ -121,7 +116,7 @@ fun appColors(spec: ThemeSpec, wallpaperSeed: Int?): AppColors {
         (spec.accent == ThemeAccent.WALLPAPER && wallpaperSeed == null)
     val seedArgb = when {
         monochrome -> 0xFF808080.toInt()
-        wallpaper -> wallpaperSeed!!
+        wallpaper -> wallpaperSeed
         spec.accent == ThemeAccent.CUSTOM -> spec.customSeed or 0xFF000000.toInt()
         else -> spec.accent.seed!!.toInt()
     }

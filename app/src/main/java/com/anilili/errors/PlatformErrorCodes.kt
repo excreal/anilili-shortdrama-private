@@ -1,7 +1,6 @@
 package com.anilili.errors
 
 import android.media.MediaCodec
-import android.os.Build
 import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
@@ -40,7 +39,7 @@ fun Throwable.platformErrorCode(): String? = causeChain().firstNotNullOfOrNull {
         // is the generic ERROR_CODE_IO_BAD_HTTP_STATUS, so reading the outer one loses the status
         // that actually explains the refusal.
         error is HttpDataSource.InvalidResponseCodeException -> "h${error.responseCode}"
-        error is MediaCodec.CodecException && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ->
+        error is MediaCodec.CodecException ->
             "c${error.errorCode}"
         error is ExportException -> "x${error.errorCode}"
         error is PlaybackException -> "m${error.errorCode}"

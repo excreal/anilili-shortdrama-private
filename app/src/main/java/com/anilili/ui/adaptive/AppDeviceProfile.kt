@@ -29,11 +29,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.material3.MaterialTheme
+import kotlin.math.roundToInt
 import com.anilili.data.device.TELEVISION_MIN_WIDTH_DP
 import com.anilili.data.device.TelevisionSignal
 import com.anilili.data.device.TelevisionSignals
@@ -188,10 +191,18 @@ val LocalAppDeviceProfile = staticCompositionLocalOf {
 }
 
 @Composable
+private fun currentWindowWidthDp(): Int {
+    val widthPx = LocalWindowInfo.current.containerSize.width
+    val density = LocalResources.current.displayMetrics.density
+    return if (widthPx > 0 && density > 0f) (widthPx / density).roundToInt() else 360
+}
+
+@Composable
 fun rememberAppDeviceProfile(): AppDeviceProfile {
     val configuration = LocalConfiguration.current
     val context = LocalContext.current
     val uiModeType = configuration.uiMode and Configuration.UI_MODE_TYPE_MASK
+    val widthDp = currentWindowWidthDp()
     val activityManager = remember(context.applicationContext) {
         context.applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
     }
@@ -202,10 +213,10 @@ fun rememberAppDeviceProfile(): AppDeviceProfile {
     val uiScale = LocalUiScale.current
     val signals = rememberTelevisionSignals()
     val preference by SettingsStore.formFactorPreference.collectAsState()
-    return remember(uiModeType, configuration.screenWidthDp, lowRam, memoryClassMb, uiScale, signals, preference) {
+    return remember(uiModeType, widthDp, lowRam, memoryClassMb, uiScale, signals, preference) {
         resolveAppDeviceProfile(
             uiModeType,
-            configuration.screenWidthDp,
+            widthDp,
             lowRam,
             memoryClassMb,
             uiScale,
@@ -227,8 +238,9 @@ fun rememberIsTelevision(): Boolean {
     val signals = rememberTelevisionSignals()
     val preference by SettingsStore.formFactorPreference.collectAsState()
     val uiModeType = configuration.uiMode and Configuration.UI_MODE_TYPE_MASK
-    return remember(uiModeType, configuration.screenWidthDp, signals, preference) {
-        televisionSignal(uiModeType, configuration.screenWidthDp, signals, preference) != null
+    val widthDp = currentWindowWidthDp()
+    return remember(uiModeType, widthDp, signals, preference) {
+        televisionSignal(uiModeType, widthDp, signals, preference) != null
     }
 }
 

@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.graphics.Color
 import coil.ImageLoader
 import kotlinx.coroutines.launch
@@ -133,9 +135,9 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
     var downloadSort by rememberSaveable { mutableStateOf("Show title") }
     var downloadView by rememberSaveable { mutableStateOf("All downloads") }
     var downloadAudio by rememberSaveable { mutableStateOf("Any audio") }
-    val widthDp = LocalConfiguration.current.screenWidthDp
-    val pagePadding = if (widthDp >= 840) 32.dp else if (widthDp >= 600) 24.dp else 16.dp
-    val posterWidth = if (widthDp >= 840) 132f else if (widthDp >= 600) 120f else ((widthDp - 62) / 3.35f).coerceIn(108f, 150f)
+    val widthDp = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp().value }
+    val pagePadding = if (widthDp >= 840f) 32.dp else if (widthDp >= 600f) 24.dp else 16.dp
+    val posterWidth = if (widthDp >= 840f) 132f else if (widthDp >= 600f) 120f else ((widthDp - 62f) / 3.35f).coerceIn(108f, 150f)
     val posterColumns = ((widthDp - pagePadding.value * 2 + 12) / (posterWidth + 12)).toInt().coerceAtLeast(1)
     val allRows = remember(model.downloads, siteDownload.pending, siteDownload.preparationStatus) { siteDownload.libraryRows(model.downloads) }
     val snapshot by produceState(DownloadLibrarySnapshot(), allRows, query, downloadSort, downloadView, downloadAudio, openGroup) {

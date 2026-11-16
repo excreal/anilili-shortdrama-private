@@ -74,6 +74,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.contentDescription
@@ -1422,7 +1423,8 @@ fun PlayerSurface(
     // Survives an episode change on purpose: someone who locked the screen to keep watching in bed
     // wants the next episode locked too, not the controls back in their face.
     var screenLocked by perSurface.screenLocked
-    val trackNameProvider = remember(context) { DefaultTrackNameProvider(context.resources) }
+    val resources = LocalResources.current
+    val trackNameProvider = remember(resources) { DefaultTrackNameProvider(resources) }
     // Nothing drawn over the picture belongs in the mini-player; see LocalPlayerInPictureInPicture.
     // The controls are put away rather than only hidden, so they are not waiting there when the
     // window comes back to full screen.

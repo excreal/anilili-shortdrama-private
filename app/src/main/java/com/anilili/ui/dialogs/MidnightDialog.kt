@@ -1,7 +1,6 @@
 package com.anilili.ui.dialogs
 
 import com.anilili.ui.theme.appCanvas
-import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MutatePriority
@@ -466,7 +465,7 @@ private const val GLASS_PANEL_ALPHA = .72f
 internal fun CoverScreenWithDialogWindow() {
     val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
     SideEffect {
-        if (dialogWindow != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (dialogWindow != null) {
             val attrs = dialogWindow.attributes
             if (attrs.fitInsetsTypes != 0 || attrs.layoutInDisplayCutoutMode !=
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS

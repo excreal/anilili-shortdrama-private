@@ -9,7 +9,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -100,7 +99,6 @@ object AnnouncementManager {
     fun init(context: Context) {
         val app = context.applicationContext
         (app as? Application)?.registerActivityLifecycleCallbacks(ForegroundCheck)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = app
             .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         // Two channels rather than one, because a channel's importance is fixed once created and
@@ -188,8 +186,7 @@ object AnnouncementManager {
 
     /** Returns false when the device will not show notifications, so nothing is marked as seen. */
     private fun post(app: Context, announcement: Announcement): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) !=
+        if (ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             return false

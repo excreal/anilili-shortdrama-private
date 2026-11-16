@@ -1,7 +1,6 @@
 package com.anilili.playback
 
 import android.content.Context
-import android.os.Build
 import android.os.StatFs
 import android.os.storage.StorageManager
 import androidx.annotation.OptIn
@@ -93,14 +92,10 @@ object MediaCache {
         val app = context.applicationContext
         val root = app.cacheDir
         val free = runCatching { StatFs(root.absolutePath).availableBytes }.getOrDefault(0L)
-        val quota = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            runCatching {
-                val manager = app.getSystemService(StorageManager::class.java)
-                manager.getCacheQuotaBytes(manager.getUuidForPath(root))
-            }.getOrNull()?.takeIf { it > 0 }
-        } else {
-            null
-        }
+        val quota = runCatching {
+            val manager = app.getSystemService(StorageManager::class.java)
+            manager.getCacheQuotaBytes(manager.getUuidForPath(root))
+        }.getOrNull()?.takeIf { it > 0 }
         return CacheStorage(
             isTv = AppGraph.isTv,
             isLowRamDevice = AppGraph.isLowRamDevice,

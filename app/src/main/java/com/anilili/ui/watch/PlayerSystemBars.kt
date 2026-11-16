@@ -1,7 +1,6 @@
 package com.anilili.ui.watch
 
 import android.app.Activity
-import android.os.Build
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -65,15 +64,10 @@ internal fun PlayerSystemBarsEffect(
     // player is on screen makes the window one size in both states, so the video stays put.
     DisposableEffect(activity, immersive, isTv) {
         val window = activity?.window
-        val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
-        val previousMode = if (supported) window?.attributes?.layoutInDisplayCutoutMode else null
-        if (window != null && supported && !isTv && immersive) {
+        val previousMode = window?.attributes?.layoutInDisplayCutoutMode
+        if (window != null && !isTv && immersive) {
             window.attributes = window.attributes.apply {
-                layoutInDisplayCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-                } else {
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                }
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
         }
         onDispose {

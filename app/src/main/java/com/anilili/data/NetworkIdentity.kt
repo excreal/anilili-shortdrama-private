@@ -3,7 +3,6 @@ package com.anilili.data
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Build
 import android.os.SystemClock
 import android.telephony.TelephonyManager
 import java.security.MessageDigest
@@ -57,7 +56,6 @@ object NetworkIdentity {
     private fun compute(): String? {
         val context = appContext ?: return null
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return null
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
         val network = cm.activeNetwork ?: return "offline"
         val caps = cm.getNetworkCapabilities(network) ?: return null
         val link = cm.getLinkProperties(network)

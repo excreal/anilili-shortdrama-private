@@ -22,11 +22,10 @@ internal object DebugTrace {
         val destination = File(context.filesDir, "diagnostics/anilili-diagnostics.jsonl")
         destination.parentFile?.mkdirs()
         file = destination
-        val packageInfo: PackageInfo = if (Build.VERSION.SDK_INT >= 33) {
-            context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION") context.packageManager.getPackageInfo(context.packageName, 0)
-        }
+        val packageInfo: PackageInfo = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(0),
+        )
         event("app_started", "version_name" to packageInfo.versionName, "version_code" to packageInfo.longVersionCode,
             "android_release" to Build.VERSION.RELEASE, "android_sdk" to Build.VERSION.SDK_INT,
             "device" to "${Build.MANUFACTURER} ${Build.MODEL}", "abis" to Build.SUPPORTED_ABIS.toList())

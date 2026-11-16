@@ -390,18 +390,13 @@ class PlaybackService : MediaSessionService() {
                     controllerInfo: MediaSession.ControllerInfo,
                     intent: Intent,
                 ): Boolean {
-                    val key = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
-                    }
+                    val key = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
                     val isResumeKey = key?.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
                         key?.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
                         key?.keyCode == KeyEvent.KEYCODE_HEADSETHOOK
                     if (isResumeKey && suppressMediaButtonResume && activePlayer?.isPlaying != true) {
                         DiagnosticsLog.event(
-                            "PlaybackService ignored background media-button resume key=${key?.keyCode}",
+                            "PlaybackService ignored background media-button resume key=${key.keyCode}",
                         )
                         return true
                     }
@@ -835,17 +830,15 @@ class PlaybackService : MediaSessionService() {
      */
     private fun standDownFromForegroundStart() {
         runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val manager = getSystemService(NotificationManager::class.java)
-                if (manager?.getNotificationChannel(STAND_DOWN_CHANNEL_ID) == null) {
-                    manager?.createNotificationChannel(
-                        NotificationChannel(
-                            STAND_DOWN_CHANNEL_ID,
-                            "Playback handover",
-                            NotificationManager.IMPORTANCE_MIN,
-                        ),
-                    )
-                }
+            val manager = getSystemService(NotificationManager::class.java)
+            if (manager?.getNotificationChannel(STAND_DOWN_CHANNEL_ID) == null) {
+                manager?.createNotificationChannel(
+                    NotificationChannel(
+                        STAND_DOWN_CHANNEL_ID,
+                        "Playback handover",
+                        NotificationManager.IMPORTANCE_MIN,
+                    ),
+                )
             }
             val placeholder = NotificationCompat.Builder(this, STAND_DOWN_CHANNEL_ID)
                 .setSmallIcon(com.example.animepahedl.R.drawable.ic_notification)

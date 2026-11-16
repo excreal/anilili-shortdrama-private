@@ -6,9 +6,9 @@
     "semantic_hash": ""
   },
   "app/build.gradle.kts": {
-    "mtime": 1794801059.4010928,
-    "seen": 1794801073.5465505,
-    "ast_hash": "1e50960ea84c2ddafa13e5cc494a3e83",
+    "mtime": 1794802905.119526,
+    "seen": 1794802912.4571154,
+    "ast_hash": "67b48624eca6b9e49d45d94a38097a36",
     "semantic_hash": ""
   },
   "app/schemas/com.example.animepahedl.DownloadDatabase/1.json": {
@@ -114,9 +114,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/data/NetworkIdentity.kt": {
-    "mtime": 1794267038.105645,
-    "seen": 1794310881.05394,
-    "ast_hash": "abab839ad723f99341a76a60d3ebeacd",
+    "mtime": 1794801933.6274111,
+    "seen": 1794801951.4768074,
+    "ast_hash": "1d2e32cd5c4498f9882e79701a09ce05",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/data/ProviderBenchmark.kt": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/data/auth/SecureTokenStore.kt": {
-    "mtime": 1794267038.1058528,
-    "seen": 1794310881.0539494,
-    "ast_hash": "04a21c235a1988bad8c089324e72e4e2",
+    "mtime": 1794802658.6880488,
+    "seen": 1794802679.1631851,
+    "ast_hash": "be5d5a6bfd860af366ba54ce0fec9ee6",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/data/device/TelevisionSignals.kt": {
@@ -264,9 +264,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/errors/PlatformErrorCodes.kt": {
-    "mtime": 1794267038.1079187,
-    "seen": 1794310881.0539892,
-    "ast_hash": "2de7f59bb9529ee22efcd48adf84f0ec",
+    "mtime": 1794801933.6274111,
+    "seen": 1794801951.4768486,
+    "ast_hash": "4a853a0ef140a7987a3e50c9efbd7a06",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/errors/PlaybackFailures.kt": {
@@ -390,15 +390,15 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/playback/LocalStreamProxyService.kt": {
-    "mtime": 1794267038.1082845,
-    "seen": 1794310881.0540328,
-    "ast_hash": "d3d1bc3be6ed4e841d08d58294239525",
+    "mtime": 1794801933.628411,
+    "seen": 1794801951.4768827,
+    "ast_hash": "8ec274427d6784275725af2b27dcf0b1",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/playback/MediaCache.kt": {
-    "mtime": 1794267038.1082845,
-    "seen": 1794310881.0540347,
-    "ast_hash": "3adcff1a13fd845a89096721a936310f",
+    "mtime": 1794801933.628411,
+    "seen": 1794801951.4768841,
+    "ast_hash": "854106c61bb302880d315ad92c5484cb",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/playback/MediaRequestHeaders.kt": {
@@ -438,9 +438,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/playback/PlaybackService.kt": {
-    "mtime": 1794267038.1092207,
-    "seen": 1794310881.0540485,
-    "ast_hash": "9914edeade41ed32665451ce70e57fb7",
+    "mtime": 1794802349.5578651,
+    "seen": 1794802361.628463,
+    "ast_hash": "0aba0ca9a2cd0e0557c8190ead9b150d",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/playback/PlaylistForeignSegments.kt": {
@@ -510,9 +510,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/adaptive/AppDeviceProfile.kt": {
-    "mtime": 1794267038.1107895,
-    "seen": 1794310881.0540733,
-    "ast_hash": "2c2154ed33861fc779365a6a5156db70",
+    "mtime": 1794802658.6870487,
+    "seen": 1794802679.1632948,
+    "ast_hash": "5e29b2d91ab222ad386cd9cdd49ae235",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/adaptive/DpadLongPress.kt": {
@@ -534,9 +534,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/adaptive/TvTextField.kt": {
-    "mtime": 1794274576.456614,
-    "seen": 1794310881.054081,
-    "ast_hash": "7a2ce0b0e61ebf26aee5688809e40b08",
+    "mtime": 1794802658.6890488,
+    "seen": 1794802679.163302,
+    "ast_hash": "5eb4b5bd2f87e7022047a2f531feeae2",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/adaptive/UiScale.kt": {
@@ -552,9 +552,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/components/BackdropBlur.kt": {
-    "mtime": 1794267038.1113734,
-    "seen": 1794310881.054087,
-    "ast_hash": "0aa92fcbd7d7e818c8dd78e1b57daf0f",
+    "mtime": 1794801896.2097523,
+    "seen": 1794801951.4769273,
+    "ast_hash": "65b3ff82bc2d2f90e0bf0c4653c990b3",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/components/CaptionAppearance.kt": {
@@ -618,9 +618,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/dialogs/MidnightDialog.kt": {
-    "mtime": 1794267038.1113734,
-    "seen": 1794310881.054108,
-    "ast_hash": "9f8a3aa73c7191122eee2c2e5f5c90d1",
+    "mtime": 1794801933.6274111,
+    "seen": 1794801951.4769452,
+    "ast_hash": "7e1dc9bc9d3c8096c9b97eb74e830162",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/dialogs/MidnightSelectors.kt": {
@@ -648,15 +648,15 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/theme/AppBackdrop.kt": {
-    "mtime": 1794267038.1122985,
-    "seen": 1794310881.0541172,
-    "ast_hash": "aab8bec3a3936e67e1a4400ceae6c9ed",
+    "mtime": 1794802293.5808928,
+    "seen": 1794802310.5568576,
+    "ast_hash": "1d1c9ddde4e35a61b0895bac58a305db",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/theme/AppColorScheme.kt": {
-    "mtime": 1794267038.1127613,
-    "seen": 1794310881.054119,
-    "ast_hash": "e25fa0c313f43846ca933c1cad4e7268",
+    "mtime": 1794802658.6870487,
+    "seen": 1794802679.1633365,
+    "ast_hash": "f3da00cb09376ecac8056e3d674e27dd",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/theme/Midnight.kt": {
@@ -822,15 +822,15 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/watch/PlayerSurface.kt": {
-    "mtime": 1794275011.2693918,
-    "seen": 1794310881.0541735,
-    "ast_hash": "a029ec1db6606eaa3f4f6747ad901a67",
+    "mtime": 1794801917.267249,
+    "seen": 1794801951.4769986,
+    "ast_hash": "9cf43791cde0c7c94690e030783f5ce0",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/watch/PlayerSystemBars.kt": {
-    "mtime": 1794267038.1142209,
-    "seen": 1794310881.0541751,
-    "ast_hash": "535f305b7fe387dedd5994738aad3d20",
+    "mtime": 1794802658.6880488,
+    "seen": 1794802679.1633854,
+    "ast_hash": "b88ec624190f49267dc2d0345ebe6494",
     "semantic_hash": ""
   },
   "app/src/main/java/com/anilili/ui/watch/PlayerTypography.kt": {
@@ -918,9 +918,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/AnnouncementManager.kt": {
-    "mtime": 1794267038.116303,
-    "seen": 1794310881.0542045,
-    "ast_hash": "26758c1e536a0a36553edbd093199d28",
+    "mtime": 1794801933.628411,
+    "seen": 1794801951.4770246,
+    "ast_hash": "5f6d584995151073533cacc568bbc0a0",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/AnnouncementSource.kt": {
@@ -966,9 +966,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/CatalogScreen.kt": {
-    "mtime": 1794723751.3822322,
-    "seen": 1794723762.120229,
-    "ast_hash": "3a02dc97a4756c2b3a0e00e3d44dd6b5",
+    "mtime": 1794802293.581893,
+    "seen": 1794802310.556945,
+    "ast_hash": "0c74870fa25bfbd214d8d637f99c91c7",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/CatalogViewModel.kt": {
@@ -978,9 +978,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DebugTrace.kt": {
-    "mtime": 1794388675.3408823,
-    "seen": 1794388946.5099828,
-    "ast_hash": "dc2b05143f357fc9225cc4282bbb8d90",
+    "mtime": 1794801917.2622488,
+    "seen": 1794801951.4770405,
+    "ast_hash": "0c8513e3d05868c007328c01cd35588c",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/DirectEnqueueRecovery.kt": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/LibraryScreens.kt": {
-    "mtime": 1794777833.0250313,
-    "seen": 1794777851.4144897,
-    "ast_hash": "2615679192060431883e731e15aba312",
+    "mtime": 1794802293.5828931,
+    "seen": 1794802310.556986,
+    "ast_hash": "8ada1e48ee4a13a9773a15e4351aed3b",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/LibraryTools.kt": {
@@ -1410,9 +1410,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/components/ReferenceBackdropBlur.kt": {
-    "mtime": 1794267038.1212208,
-    "seen": 1794310881.0543675,
-    "ast_hash": "f3a6a3dea7be26d22ef6d2ff4b3d8cad",
+    "mtime": 1794802658.6880488,
+    "seen": 1794802679.163557,
+    "ast_hash": "0f276981675dd132aca6dd2a184995bb",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/components/ReferenceChromeTokens.kt": {
@@ -1920,9 +1920,9 @@
     "semantic_hash": ""
   },
   "docs/implementation-progress.md": {
-    "mtime": 1794801610.4144812,
-    "seen": 1794801622.6774657,
-    "ast_hash": "7274c93dadb500bee46b851584c8c4d1",
+    "mtime": 1794803289.0946887,
+    "seen": 1794803299.9633288,
+    "ast_hash": "dbc2bb9d72add796210618b664ad0268",
     "semantic_hash": ""
   },
   "docs/ui-consistency-and-wrapping-audit.md": {

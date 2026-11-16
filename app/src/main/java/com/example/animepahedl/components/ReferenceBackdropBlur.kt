@@ -4,10 +4,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.*
-val backdropBlurAvailable = android.os.Build.VERSION.SDK_INT >= 31
+const val backdropBlurAvailable = true
 @OptIn(ExperimentalHazeApi::class)
 fun Modifier.backdropBlur(state: HazeState?, tint: Color, radius: Dp = 16.dp): Modifier =
-    if (state == null || !backdropBlurAvailable) {
+    if (state == null) {
         this
     } else {
         hazeEffect(

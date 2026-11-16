@@ -13,7 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -48,10 +49,11 @@ internal fun CatalogScreen(
             previousContent = contentIdentity
         }
     }
-    val phoneCardWidth = ((LocalConfiguration.current.screenWidthDp - 62) / 3.35f).coerceIn(108f, 150f).dp
+    val windowWidthDp = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp().value }
+    val phoneCardWidth = ((windowWidthDp - 62f) / 3.35f).coerceIn(108f, 150f).dp
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(model.source) { mutableStateOf(emptyList<String>()) }
     // Keep the short-drama catalog at the original dense poster size on phones.
-    val columns = if (LocalConfiguration.current.screenWidthDp >= 600) 4 else 3
+    val columns = if (windowWidthDp >= 600f) 4 else 3
     val searchSourceName = model.source.label
     LaunchedEffect(grid, model.items.size, model.loading, model.error, browseMode) {
         snapshotFlow { browseMode && model.items.isNotEmpty() && !model.loading && model.error == null && model.nextUrl != null &&

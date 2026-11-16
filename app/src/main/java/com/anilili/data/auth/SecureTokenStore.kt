@@ -1,11 +1,9 @@
 package com.anilili.data.auth
 
 import android.content.Context
-import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import androidx.annotation.RequiresApi
 import com.anilili.diagnostics.CrashReporter
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
@@ -53,13 +51,11 @@ internal class SecureTokenStore(context: Context, private val slotKey: String = 
     }
 
     private fun encrypt(value: String): String {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Some TV boxes ship a broken Keystore HAL and throw on key access; losing
-            // hardware-backing there beats crashing the login. decrypt() picks the key
-            // by the "s:" prefix, so both formats coexist in the same slot.
-            runCatching { return encryptWith(value, hardwareSecretKey(), softwareKey = false) }
-                .onFailure { CrashReporter.logNonFatal("Keystore unavailable; using software token key", it) }
-        }
+        // Some TV boxes ship a broken Keystore HAL and throw on key access; losing
+        // hardware-backing there beats crashing the login. decrypt() picks the key
+        // by the "s:" prefix, so both formats coexist in the same slot.
+        runCatching { return encryptWith(value, hardwareSecretKey(), softwareKey = false) }
+            .onFailure { CrashReporter.logNonFatal("Keystore unavailable; using software token key", it) }
         return encryptWith(value, softwareSecretKey(), softwareKey = true)
     }
 
@@ -87,11 +83,7 @@ internal class SecureTokenStore(context: Context, private val slotKey: String = 
     }
 
     private fun secretKey(softwareKey: Boolean): SecretKey =
-        if (softwareKey || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            softwareSecretKey()
-        } else {
-            hardwareSecretKey()
-        }
+        if (softwareKey) softwareSecretKey() else hardwareSecretKey()
 
     private fun softwareSecretKey(): SecretKey {
         val stored = prefs.getString(KEY_SOFTWARE_KEY, null)
@@ -105,7 +97,6 @@ internal class SecureTokenStore(context: Context, private val slotKey: String = 
         return SecretKeySpec(bytes, "AES")
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private fun hardwareSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
