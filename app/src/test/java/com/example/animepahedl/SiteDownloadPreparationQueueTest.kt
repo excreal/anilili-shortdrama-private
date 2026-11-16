@@ -30,33 +30,33 @@ class SiteDownloadPreparationQueueTest {
         quality: String = "Best",
     ) = SiteDownloadPreparation(series(provider, seriesId), episodes, quality)
 
-    @Test fun appendKeepsExistingWorkAheadOfNewTitles() {
+    @Test fun splitKeepsExistingWorkAheadOfNewTitles() {
         val first = batch(SiteDownloadProvider.DRAMATIP, "first", listOf(episode("first-1")))
         val second = batch(SiteDownloadProvider.NARTO, "second", listOf(episode("second-1")))
 
-        val queued = appendSitePreparation(first, second).batches()
+        val queued = splitPreparation(first.withBatches(first.batches() + second.batches())!!).values.toList()
 
         assertEquals(listOf("first", "second"), queued.map { it.series.id })
         assertEquals(listOf("first-1", "second-1"), queued.flatMap { it.episodes }.map { it.id })
     }
 
-    @Test fun appendDeduplicatesEpisodesForSameProviderShowAndQuality() {
+    @Test fun splitDeduplicatesEpisodesForSameProviderShowAndQuality() {
         val first = batch(SiteDownloadProvider.DRAMATIP, "show", listOf(episode("1"), episode("2")))
         val added = batch(SiteDownloadProvider.DRAMATIP, "show", listOf(episode("2", 200), episode("3")))
 
-        val queued = appendSitePreparation(first, added).batches()
+        val queued = splitPreparation(first.withBatches(first.batches() + added.batches())!!).values.toList()
 
-        assertEquals(1, queued.size)
-        assertEquals(listOf("1", "2", "3"), queued.single().episodes.map { it.id })
-        assertEquals(1, queued.single().episodes[1].number)
+        assertEquals(3, queued.size)
+        assertEquals(listOf("1", "2", "3"), queued.map { it.episodes.single().id })
+        assertEquals(1, queued[1].episodes.single().number)
     }
 
-    @Test fun appendKeepsSameIdsFromDifferentProvidersAndQualitiesSeparate() {
+    @Test fun splitKeepsSameIdsFromDifferentProvidersAndQualitiesSeparate() {
         val first = batch(SiteDownloadProvider.DRAMATIP, "show", listOf(episode("1")))
         val fromAnotherProvider = batch(SiteDownloadProvider.NARTO, "show", listOf(episode("1")))
         val otherQuality = batch(SiteDownloadProvider.DRAMATIP, "show", listOf(episode("1")), "720p")
 
-        val queued = appendSitePreparation(appendSitePreparation(first, fromAnotherProvider), otherQuality).batches()
+        val queued = splitPreparation(first.withBatches(first.batches() + fromAnotherProvider.batches() + otherQuality.batches())!!).values.toList()
 
         assertEquals(3, queued.size)
         assertEquals(

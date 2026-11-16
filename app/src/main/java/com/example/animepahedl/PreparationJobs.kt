@@ -21,11 +21,12 @@ import java.util.concurrent.TimeUnit
 
 internal data class PreparationStatus(val pending: Boolean = false, val paused: Boolean = false,
     val label: String = "", val verificationUrl: String? = null, val needsFolderAccess: Boolean = false,
-    val totalSelected: Int = 0, val running: Boolean = false, val activeRowId: String? = null) {
-    val automatic get() = pending && !paused && verificationUrl == null && !needsFolderAccess
+    val totalSelected: Int = 0, val running: Boolean = false, val activeRowId: String? = null,
+    val items: Map<String, PreparationStatus> = emptyMap()) {
+    val automatic: Boolean get() = if (items.isNotEmpty()) items.values.any { it.automatic } else pending && !paused && verificationUrl == null && !needsFolderAccess
 }
 
-/** The journal holds the batch; WorkManager owns execution, network waits, and retry timing. */
+/** Each episode owns a durable journal and unique WorkManager request. */
 internal object PreparationJobs {
     const val ANIME = "episodes"
     const val SITES = "sites"
@@ -33,36 +34,70 @@ internal object PreparationJobs {
     private val locks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
     private fun name(slot: String) = "prepare-links-$slot"
     private fun lock(slot: String) = locks.getOrPut(slot) { Mutex() }
-    fun payload(slot: String): String? = DownloadStore.operations("preparation")[slot]
+    private const val ITEM_PREFIX = "site-item:"
+    private const val ITEM_TAG = "site-preparation-item"
+    private val kinds = listOf("preparation", "preparation-generation", "preparation-paused", "preparation-verification", "preparation-folder", "preparation-total", "preparation-failures", "preparation-error", "preparation-order")
+    fun itemSlots(): List<String> = DownloadStore.operations("preparation").keys.filter { it.startsWith(ITEM_PREFIX) }.sortedWith(compareBy<String> { DownloadStore.operations("preparation-order")[it]?.toLongOrNull() ?: Long.MAX_VALUE }.thenBy { it })
+    fun itemSlot(id: String) = ITEM_PREFIX + id
+    fun payload(slot: String): String? {
+        if (slot != SITES) return DownloadStore.operations("preparation")[slot]
+        DownloadStore.operations("preparation")[SITES]?.let { return it }
+        val records = itemSlots().mapNotNull { DownloadStore.operations("preparation")[it] }
+            .map { gson.fromJson(it, SiteDownloadPreparation::class.java) }
+        return records.firstOrNull()?.withBatches(records.flatMap { it.batches() })?.let(gson::toJson)
+    }
+    /** Commit children before removing the legacy journal: restart can safely repeat this migration. */
+    private suspend fun migrate(context: Context) = lock(SITES).withLock {
+        val raw = DownloadStore.operations("preparation")[SITES] ?: return@withLock
+        val record = gson.fromJson(raw, SiteDownloadPreparation::class.java)
+        val entries = splitPreparation(record)
+        for ((index, entry) in entries.entries.withIndex()) {
+            val (id, item) = entry
+            val key = itemSlot(id)
+            DownloadStore.operation(key, "preparation", gson.toJson(item))
+            DownloadStore.operation(key, "preparation-generation", UUID.randomUUID().toString())
+            // Explicit batch pause applies to all items; a failure/verification only applies to the old head.
+            for (kind in kinds.drop(2)) {
+                val value = DownloadStore.operations(kind)[SITES]
+                if (inheritLegacyPreparationState(kind, index == 0, DownloadStore.operations("preparation-error")[SITES] != null))
+                    DownloadStore.operation(key, kind, value)
+            }
+            DownloadStore.operation(key, "preparation-order", index.toString())
+        }
+        DownloadStore.flush()
+        for (kind in kinds) DownloadStore.operation(SITES, kind, null)
+        DownloadStore.flush()
+        withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(SITES)).result.get() }
+    }
     private fun generation(slot: String) = DownloadStore.operations("preparation-generation")[slot]
     fun active(slot: String, token: String): Boolean = generation(slot) == token && payload(slot) != null &&
         slot !in DownloadStore.operations("preparation-paused") && slot !in DownloadStore.operations("preparation-verification") && slot !in DownloadStore.operations("preparation-folder")
 
     fun observe(context: Context, slot: String): Flow<PreparationStatus> = flow {
-        emitAll(combine(
-            DownloadStore.revisions, WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(name(slot))
-        ) { _, jobs ->
-        val pending = payload(slot) != null
-        val paused = slot in DownloadStore.operations("preparation-paused")
-        val verification = DownloadStore.operations("preparation-verification")[slot]
-        val needsFolder = slot in DownloadStore.operations("preparation-folder")
-        val job = jobs.firstOrNull { it.state == WorkInfo.State.RUNNING }
-            ?: jobs.firstOrNull { it.state == WorkInfo.State.ENQUEUED }
-            ?: jobs.firstOrNull { !it.state.isFinished }
-        PreparationStatus(pending, paused, when {
-            !pending -> ""
-            needsFolder -> "Choose downloads folder to check existing videos"
-            paused -> DownloadStore.operations("preparation-error")[slot] ?: "Link preparation paused"
-            verification != null -> "Verify session to continue"
-            job?.state == WorkInfo.State.RUNNING -> job.progress.getString("label") ?: "Preparing links in background"
-            job != null && job.runAttemptCount > 0 -> DownloadStore.operations("preparation-error")[slot] ?: "Retrying remaining links automatically"
-            else -> "Preparing links · waiting for network or scheduler"
-        }, verification, needsFolder, DownloadStore.operations("preparation-total")[slot]?.toIntOrNull() ?: 0,
-            running = pending && job?.state == WorkInfo.State.RUNNING && !paused && verification == null && !needsFolder,
-            activeRowId = job?.progress?.getString("rowId"))
+        DownloadStore.awaitReady()
+        recover(context)
+        emitAll(combine(DownloadStore.revisions,
+            WorkManager.getInstance(context).getWorkInfosByTagFlow(ITEM_TAG)) { _, jobs ->
+            val statuses = itemSlots().associate { key ->
+                val job = jobs.firstOrNull { key in it.tags && generation(key) in it.tags && !it.state.isFinished }
+                val paused = key in DownloadStore.operations("preparation-paused")
+                val verification = DownloadStore.operations("preparation-verification")[key]
+                val folder = key in DownloadStore.operations("preparation-folder")
+                val running = job?.state == WorkInfo.State.RUNNING && job.progress.getString("rowId") != null && !paused && verification == null && !folder
+                val label = when {
+                    folder -> "Choose downloads folder"
+                    paused -> DownloadStore.operations("preparation-error")[key] ?: "Preparation paused"
+                    verification != null -> "Session verification needed"
+                    running -> "Preparing download link"
+                    else -> DownloadStore.operations("preparation-error")[key] ?: "Waiting to prepare link"
+                }
+                key.removePrefix(ITEM_PREFIX) to PreparationStatus(true, paused, label, verification, folder, 1, running,
+                    job?.progress?.getString("rowId"))
+            }
+            aggregatePreparationStatus(statuses)
         })
     }.retryWhen { failure, _ ->
-        if (failure !is Exception) false else {
+        if (failure !is Exception || failure is CancellationException) false else {
             emit(PreparationStatus(payload(slot) != null, paused = true, label = "Waiting for preparation storage"))
             delay(30_000)
             true
@@ -71,6 +106,7 @@ internal object PreparationJobs {
 
     suspend fun submit(context: Context, slot: String, record: Any) = withContext(NonCancellable) {
         DownloadStore.awaitReady()
+        if (slot == SITES && record is SiteDownloadPreparation) { appendSites(context, record); return@withContext }
         lock(slot).withLock {
             require(payload(slot) == null) { "A batch is already being prepared." }
             DownloadStore.operation(slot, "preparation", gson.toJson(record))
@@ -85,36 +121,33 @@ internal object PreparationJobs {
             enqueue(context, slot, ExistingWorkPolicy.REPLACE)
         }
     }
-    /** Add a title to the persistent queue and restart the worker with a fresh journal token. */
+    /** Bulk selection enqueues independent durable items without replacing active workers. */
     suspend fun appendSites(context: Context, record: SiteDownloadPreparation) = withContext(NonCancellable) {
         DownloadStore.awaitReady()
-        lock(SITES).withLock {
-            val current = payload(SITES)?.let { gson.fromJson(it, SiteDownloadPreparation::class.java) }
-            val merged = current?.let { appendSitePreparation(it, record) } ?: record
-            val currentRemaining = current?.batches()?.sumOf { it.episodes.size } ?: 0
-            val mergedRemaining = merged.batches().sumOf { it.episodes.size }
-            val added = mergedRemaining - currentRemaining
-            if (current != null && added == 0) return@withLock
-            DownloadStore.operation(SITES, "preparation", gson.toJson(merged))
-            val previousTotal = if (current == null) 0 else
-                DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: currentRemaining
-            DownloadStore.operation(SITES, "preparation-total", (previousTotal + added).toString())
-            DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
-            if (current == null) {
-                DownloadStore.operation(SITES, "preparation-failures", null)
-                DownloadStore.operation(SITES, "preparation-error", null)
-                DownloadStore.operation(SITES, "preparation-paused", null)
-                DownloadStore.operation(SITES, "preparation-verification", null)
-                DownloadStore.operation(SITES, "preparation-folder", null)
+        migrate(context)
+        for ((id, item) in splitPreparation(record)) {
+            val key = itemSlot(id)
+            lock(key).withLock {
+                if (payload(key) == null) {
+                    for (kind in kinds) DownloadStore.operation(key, kind, null)
+                    val order = itemSlots().maxOfOrNull { DownloadStore.operations("preparation-order")[it]?.toLongOrNull() ?: 0L } ?: 0L
+                    DownloadStore.operation(key, "preparation-order", (order + 1).toString())
+                    DownloadStore.operation(key, "preparation", gson.toJson(item))
+                    DownloadStore.operation(key, "preparation-generation", UUID.randomUUID().toString())
+                    DownloadStore.flush()
+                }
+                if (active(key, generation(key).orEmpty())) enqueue(context, key, ExistingWorkPolicy.KEEP)
             }
-            DownloadStore.flush()
-            if (SITES !in DownloadStore.operations("preparation-paused") &&
-                SITES !in DownloadStore.operations("preparation-verification") &&
-                SITES !in DownloadStore.operations("preparation-folder")) enqueue(context, SITES, ExistingWorkPolicy.REPLACE)
         }
     }
-    suspend fun resume(context: Context, slot: String) = withContext(NonCancellable) {
+    suspend fun resume(context: Context, slot: String): Unit = withContext(NonCancellable) {
         DownloadStore.awaitReady()
+        if (slot == SITES) {
+            migrate(context)
+            for (key in itemSlots()) if (!active(key, generation(key).orEmpty())) resume(context, key)
+            recover(context)
+            return@withContext
+        }
         lock(slot).withLock {
             if (payload(slot) == null) return@withLock
             // A new token prevents a cancelled predecessor from changing this journal.
@@ -128,8 +161,9 @@ internal object PreparationJobs {
             enqueue(context, slot, ExistingWorkPolicy.REPLACE)
         }
     }
-    suspend fun pause(context: Context, slot: String) = withContext(NonCancellable) {
+    suspend fun pause(context: Context, slot: String): Unit = withContext(NonCancellable) {
         DownloadStore.awaitReady()
+        if (slot == SITES) { migrate(context); for (key in itemSlots()) pause(context, key); return@withContext }
         lock(slot).withLock {
             if (payload(slot) != null) {
                 DownloadStore.operation(slot, "preparation-paused", "1")
@@ -139,47 +173,20 @@ internal object PreparationJobs {
             withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(slot)).result.get() }
         }
     }
-    suspend fun discard(context: Context, slot: String) = withContext(NonCancellable) {
+    suspend fun discard(context: Context, slot: String): Unit = withContext(NonCancellable) {
         DownloadStore.awaitReady()
+        if (slot == SITES) { migrate(context); for (key in itemSlots()) discard(context, key); return@withContext }
         lock(slot).withLock {
-            for (kind in listOf("preparation", "preparation-generation", "preparation-paused", "preparation-verification", "preparation-folder", "preparation-total", "preparation-failures", "preparation-error"))
+            for (kind in kinds)
                 DownloadStore.operation(slot, kind, null)
             DownloadStore.flush()
             withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(slot)).result.get() }
         }
     }
-    suspend fun removeSiteEpisodes(context: Context, ids: Set<String>) = withContext(NonCancellable) {
+    suspend fun removeSiteEpisodes(context: Context, ids: Set<String>) {
         DownloadStore.awaitReady()
-        lock(SITES).withLock {
-            val raw = payload(SITES) ?: return@withLock
-            val record = gson.fromJson(raw, SiteDownloadPreparation::class.java)
-            val before = record.batches().sumOf { it.episodes.size }
-            val batches = record.batches().mapNotNull { batch ->
-                val episodes = batch.episodes.filterNot { pendingEpisodeRowId(batch.series, it) in ids }
-                batch.copy(episodes = episodes).takeIf { episodes.isNotEmpty() }
-            }
-            if (batches.sumOf { it.episodes.size } == before) return@withLock
-            val head = record.batches().firstOrNull()?.let { batch ->
-                batch.episodes.firstOrNull()?.let { pendingEpisodeRowId(batch.series, it) }
-            }
-            if (head in ids) {
-                // Removing the failing item gives the next episode its own retry budget.
-                if (SITES in DownloadStore.operations("preparation-error"))
-                    DownloadStore.operation(SITES, "preparation-paused", null)
-                DownloadStore.operation(SITES, "preparation-failures", null)
-                DownloadStore.operation(SITES, "preparation-error", null)
-            }
-            val paused = SITES in DownloadStore.operations("preparation-paused")
-            DownloadStore.operation(SITES, "preparation-generation", UUID.randomUUID().toString())
-            val remaining = batches.sumOf { it.episodes.size }
-            val total = DownloadStore.operations("preparation-total")[SITES]?.toIntOrNull() ?: before
-            DownloadStore.operation(SITES, "preparation-total", (total - before + remaining).coerceAtLeast(0).toString())
-            DownloadStore.operation(SITES, "preparation", record.withBatches(batches)?.let(gson::toJson))
-            DownloadStore.flush()
-            withContext(Dispatchers.IO) { WorkManager.getInstance(context).cancelUniqueWork(name(SITES)).result.get() }
-            if (batches.isNotEmpty() && !paused && SITES !in DownloadStore.operations("preparation-verification") &&
-                SITES !in DownloadStore.operations("preparation-folder")) enqueue(context, SITES, ExistingWorkPolicy.REPLACE)
-        }
+        migrate(context)
+        for (id in ids) discard(context, itemSlot(id))
     }
     suspend fun save(slot: String, token: String, record: Any?): Boolean = withContext(NonCancellable) {
         lock(slot).withLock {
@@ -187,6 +194,7 @@ internal object PreparationJobs {
             DownloadStore.operation(slot, "preparation-failures", null)
             DownloadStore.operation(slot, "preparation-error", null)
             DownloadStore.operation(slot, "preparation", record?.let(gson::toJson))
+            if (record == null) for (kind in kinds) DownloadStore.operation(slot, kind, null)
             DownloadStore.flush()
             true
         }
@@ -200,7 +208,7 @@ internal object PreparationJobs {
             DownloadStore.operation(slot, "preparation-failures", failures.toString())
             DownloadStore.operation(slot, "preparation-error", if (retry)
                 "Link preparation failed · retry $failures/2 scheduled"
-                else "Could not prepare the next link after 3 attempts. Resume to retry or remove that episode.")
+                else "Could not prepare this link after 3 attempts. Resume to retry.")
             if (!retry) DownloadStore.operation(slot, "preparation-paused", "1")
             DownloadStore.flush()
             retry
@@ -232,12 +240,13 @@ internal object PreparationJobs {
         }
     }
     suspend fun folderAccessRestored(context: Context) {
-        for (slot in listOf(SITES)) if (slot in DownloadStore.operations("preparation-folder") &&
+        for (slot in itemSlots()) if (slot in DownloadStore.operations("preparation-folder") &&
             slot !in DownloadStore.operations("preparation-paused")) resume(context, slot)
     }
     suspend fun recover(context: Context) {
         DownloadStore.awaitReady()
-        for (slot in listOf(SITES)) lock(slot).withLock {
+        migrate(context)
+        for (slot in itemSlots()) lock(slot).withLock {
             if (payload(slot) != null && slot !in DownloadStore.operations("preparation-paused") &&
                 slot !in DownloadStore.operations("preparation-verification") && slot !in DownloadStore.operations("preparation-folder")) {
                 if (generation(slot) == null) {
@@ -248,14 +257,10 @@ internal object PreparationJobs {
             }
         }
     }
-    suspend fun continueWork(context: Context, slot: String, token: String) = withContext(NonCancellable) {
-        lock(slot).withLock {
-            if (active(slot, token)) enqueue(context, slot, ExistingWorkPolicy.APPEND_OR_REPLACE)
-        }
-    }
     private suspend fun enqueue(context: Context, slot: String, policy: ExistingWorkPolicy) {
         val request = OneTimeWorkRequestBuilder<PreparationWorker>()
             .setInputData(workDataOf("slot" to slot, "generation" to generation(slot)))
+            .addTag(ITEM_TAG).addTag(slot).addTag(generation(slot).orEmpty())
             .setConstraints(Constraints.Builder().setRequiredNetworkType(
                 if (AppSettings(context).unmeteredOnly) NetworkType.UNMETERED else NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -265,13 +270,14 @@ internal object PreparationJobs {
     }
 }
 
-/** Site batches survive leaving the screen and process restarts. */
+/** Each episode survives leaving the screen and process restarts independently. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PreparationWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     private val slot = inputData.getString("slot").orEmpty()
     private val token = inputData.getString("generation").orEmpty()
     private val gson = Gson()
-    private val notificationId get() = if (slot == PreparationJobs.ANIME) 40 else 41
+    private val notificationId get() = 1000 + (slot.hashCode() and 0x3fffffff)
+    companion object { private val permits = kotlinx.coroutines.sync.Semaphore(2) }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foreground("Preparing download links")
     private fun foreground(label: String): ForegroundInfo {
@@ -288,7 +294,12 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
         setForeground(foreground(label))
     }
     override suspend fun doWork(): Result {
-        if (slot != PreparationJobs.SITES || token.isBlank()) return Result.failure()
+        if (slot == PreparationJobs.SITES) { withContext(NonCancellable) { PreparationJobs.recover(applicationContext) }; return Result.success() }
+        permits.acquire()
+        try { return prepareItem() } finally { permits.release() }
+    }
+    private suspend fun prepareItem(): Result {
+        if (!slot.startsWith("site-item:") || token.isBlank()) return Result.failure()
         return try {
             DownloadStore.awaitReady()
             if (!PreparationJobs.active(slot, token)) return Result.success()
@@ -349,35 +360,18 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
         } catch (_: Exception) { false }
     }
     private suspend fun prepareSites(record: SiteDownloadPreparation): Result {
-        val remaining = record.batches().toMutableList()
+        val batch = record.batches().single()
+        val episode = batch.episodes.single()
         val cookies = SiteDownloadCookieStore(applicationContext)
         val repository = appSiteDownloadRepository(cookieHeader = cookies::headerFor)
-        val start = android.os.SystemClock.elapsedRealtime()
-        var done = 0
-        val total = remaining.sumOf { it.episodes.size }
-        while (remaining.isNotEmpty()) {
-            if (android.os.SystemClock.elapsedRealtime() - start > 7 * 60_000) break
-            val batch = remaining.first()
-            val episode = batch.episodes.first()
-            progress(if (batch.series.isSingleVideo) "Preparing video" else "Preparing ${done + 1}/$total · ${batch.series.title} · Episode ${episode.displayNumber}",
-                pendingEpisodeRowId(batch.series, episode))
-            if (attempt {
-                if (batch.quality == "Best" || !reuseExisting(DownloadIdentity.siteDownload(batch.series, episode, batch.quality, "und"))) {
-                    val media = cookies.applyTo(repository.resolve(episode.url, batch.quality, cookies.headerFor(episode.url)))
-                    enqueue(DownloadIdentity.siteDownload(batch.series, episode, media.quality, media.audio), media)
-                }
-            }) {
-                val next = batch.copy(episodes = batch.episodes.drop(1))
-                if (next.episodes.isEmpty()) remaining.removeAt(0) else remaining[0] = next
-                done++
-                if (!PreparationJobs.save(slot, token, record.withBatches(remaining))) return Result.success()
-            } else {
-                return failedAttempt()
+        progress("Preparing ${batch.series.title} · Episode ${episode.displayNumber}", pendingEpisodeRowId(batch.series, episode, batch.quality))
+        if (!attempt {
+            if (batch.quality == "Best" || !reuseExisting(DownloadIdentity.siteDownload(batch.series, episode, batch.quality, "und"))) {
+                val media = cookies.applyTo(repository.resolve(episode.url, batch.quality, cookies.headerFor(episode.url)))
+                enqueue(DownloadIdentity.siteDownload(batch.series, episode, media.quality, media.audio), media)
             }
-        }
-        // Finishing a work slice is not a failure. A new request resets WorkManager's
-        // attempt count instead of imposing exponentially longer waits on large series.
-        if (remaining.isNotEmpty()) PreparationJobs.continueWork(applicationContext, slot, token)
+        }) return failedAttempt()
+        PreparationJobs.save(slot, token, null)
         return Result.success()
     }
 }

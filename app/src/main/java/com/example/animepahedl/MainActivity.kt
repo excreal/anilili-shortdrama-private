@@ -191,7 +191,6 @@ private fun DownloaderApp(model: DownloaderViewModel, siteDownload: SiteDownload
         enqueueAfterFolder = null
         if (uri != null) model.chooseOutputTree(uri) {
             if (action == "sites") siteDownload.downloadSelected()
-            if (action == "player") siteDownload.resumePreparation()
         }
     }
     fun chooseOutputFolder(action: String? = null) {
@@ -257,9 +256,10 @@ private fun DownloaderApp(model: DownloaderViewModel, siteDownload: SiteDownload
                                     if (selected.any { action in it.actions }) DropdownMenuItem(text = { Text(label) }, onClick = {
                                         bulkMenu = false
                                         if (selected.any { siteDownload.isPendingRow(it.id) && action in it.actions }) {
-                                            val id = selected.first { siteDownload.isPendingRow(it.id) }.id
-                                            if (action == DownloadAction.PAUSE) siteDownload.pausePending(id)
-                                            if (action == DownloadAction.RESUME) siteDownload.resumePending(id)
+                                            selected.filter { siteDownload.isPendingRow(it.id) && action in it.actions }.forEach { row ->
+                                                if (action == DownloadAction.PAUSE) siteDownload.pausePending(row.id)
+                                                if (action == DownloadAction.RESUME) siteDownload.resumePending(row.id)
+                                            }
                                         }
                                         if (selected.any { !siteDownload.isPendingRow(it.id) && action in it.actions }) model.performSelectionAction(action)
                                     })

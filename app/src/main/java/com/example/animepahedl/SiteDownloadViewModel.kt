@@ -65,7 +65,8 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
         viewModelScope.launch {
             try {
                 DownloadStore.awaitReady()
-                pending = DownloadStore.operations("preparation")[SITE_DOWNLOAD_PREPARATION_KEY]?.let {
+                PreparationJobs.recover(app)
+                pending = PreparationJobs.payload(PreparationJobs.SITES)?.let {
                     runCatching { gson.fromJson(it, SiteDownloadPreparation::class.java) }.getOrNull()
                 }
                 ready = true
@@ -85,8 +86,18 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
 
     fun libraryRows(actual: List<DownloadRow>): List<DownloadRow> = mergePreparedQueueRows(actual, pending, preparationStatus)
     fun isPendingRow(id: String) = isPreparedQueueRow(id)
-    fun pausePending(id: String) { if (isPendingRow(id)) pausePreparation() }
-    fun resumePending(id: String) { if (isPendingRow(id)) resumePreparation() }
+    fun pausePending(id: String) { if (isPendingRow(id)) changePending(id, false) }
+    fun resumePending(id: String) { if (isPendingRow(id)) changePending(id, true) }
+    private fun changePending(id: String, resume: Boolean) { viewModelScope.launch {
+        try {
+            if (resume) PreparationJobs.resume(app, PreparationJobs.itemSlot(id))
+            else PreparationJobs.pause(app, PreparationJobs.itemSlot(id))
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { error = "Could not update this download. Try again." }
+    } }
+    fun resumeVerified(url: String) {
+        preparationStatus.items.filterValues { it.verificationUrl == url && !it.paused }.keys.forEach(::resumePending)
+    }
     fun removePending(ids: Set<String>) {
         if (ids.none(::isPreparedQueueRow)) return
         viewModelScope.launch {
@@ -192,12 +203,14 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
         submitting = true
         viewModelScope.launch {
             try {
-                PreparationJobs.pause(app, PreparationJobs.SITES)
+                val nartoIds = pending?.batches().orEmpty().filter { it.series.provider == SiteDownloadProvider.NARTO }
+                    .flatMap { batch -> batch.episodes.map { pendingEpisodeRowId(batch.series, it, batch.quality) } }
+                for (id in nartoIds) PreparationJobs.pause(app, PreparationJobs.itemSlot(id))
                 val urls = pending?.batches().orEmpty().filter { it.series.provider == SiteDownloadProvider.NARTO }
                     .flatMap { batch -> listOf(batch.series.url) + batch.episodes.map { it.url } }
                 cookies.clearNarto(urls + listOfNotNull(preparationStatus.verificationUrl))
                 hasCookies = cookies.hasCookies
-                PreparationJobs.resume(app, PreparationJobs.SITES)
+                for (id in nartoIds) PreparationJobs.resume(app, PreparationJobs.itemSlot(id))
                 notice = "Narto cookies cleared. Retrying queued links."
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { error = "Could not reset Narto cookies. Retry from Downloads." }

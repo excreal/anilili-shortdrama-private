@@ -17,9 +17,11 @@ internal fun PreparationStatusRow(status: PreparationStatus, remaining: Int, onP
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (status.running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         else AppSymbol(AppIcon.Download, Modifier.size(18.dp))
-        Text((if (status.totalSelected > 0) "${status.totalSelected} episodes queued · " else "") + "$remaining remaining · " + status.label.ifBlank { "Waiting to prepare links" }, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+        Text("$remaining episodes remaining · " + status.label.ifBlank { "Waiting to prepare links" }, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
             maxLines = 4, overflow = TextOverflow.Ellipsis)
-        if (status.needsFolderAccess && onChooseFolder != null) {
+        if (status.automatic) {
+            IconButton(onClick = onPause) { AppSymbol(AppIcon.Pause, description = "Pause all preparation") }
+        } else if (status.needsFolderAccess && onChooseFolder != null) {
             IconButton(onClick = onChooseFolder) { AppSymbol(AppIcon.Folder, description = "Choose existing downloads folder") }
         } else if (status.verificationUrl != null && onVerify != null) {
             IconButton(onClick = onVerify) { AppSymbol(AppIcon.Shield, description = "Verify session") }
@@ -30,6 +32,10 @@ internal fun PreparationStatusRow(status: PreparationStatus, remaining: Int, onP
         Box {
             IconButton(onClick = { menu = true }) { AppSymbol(AppIcon.More, description = "Preparation actions") }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                if (status.needsFolderAccess && onChooseFolder != null) DropdownMenuItem(text = { Text("Choose downloads folder") },
+                    onClick = { menu = false; onChooseFolder() })
+                if (status.verificationUrl != null && onVerify != null) DropdownMenuItem(text = { Text("Verify session for blocked download") },
+                    onClick = { menu = false; onVerify() })
                 if (onResetNarto != null) DropdownMenuItem(text = { Text("Clear Narto cookies and retry") },
                     onClick = { menu = false; onResetNarto() })
                 if (!status.running && status.verificationUrl == null && !status.needsFolderAccess) {

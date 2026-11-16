@@ -24,17 +24,25 @@ internal data class SiteDownloadPreparationBatch(
     val quality: String,
 )
 
-internal fun appendSitePreparation(current: SiteDownloadPreparation, added: SiteDownloadPreparation): SiteDownloadPreparation {
-    val batches = current.batches().toMutableList()
-    for (batch in added.batches()) {
-        val index = batches.indexOfFirst { it.series.provider == batch.series.provider && it.series.id == batch.series.id && it.quality == batch.quality }
-        if (index < 0) batches += batch.copy(episodes = batch.episodes.distinctBy { it.id })
-        else {
-            val previous = batches[index]
-            batches[index] = previous.copy(episodes = (previous.episodes + batch.episodes).distinctBy { it.id })
-        }
+/** Identity matches the library row; bulk requests are only an input convenience. */
+internal fun splitPreparation(record: SiteDownloadPreparation): Map<String, SiteDownloadPreparation> =
+    buildMap {
+        for (batch in record.batches()) for (episode in batch.episodes)
+            putIfAbsent(pendingEpisodeRowId(batch.series, episode, batch.quality),
+                SiteDownloadPreparation(batch.series, listOf(episode), batch.quality))
     }
-    return current.withBatches(batches) ?: added
+
+internal fun aggregatePreparationStatus(items: Map<String, PreparationStatus>): PreparationStatus {
+    val values = items.values
+    val running = values.count { it.running }
+    val waiting = values.count { it.automatic && !it.running }
+    val blocked = values.count { !it.automatic }
+    return PreparationStatus(pending = items.isNotEmpty(), paused = items.isNotEmpty() && values.all { it.paused },
+        label = "$running preparing · $waiting waiting · $blocked need attention",
+        verificationUrl = values.firstNotNullOfOrNull { it.verificationUrl },
+        needsFolderAccess = values.any { it.needsFolderAccess }, totalSelected = items.size,
+        running = running > 0, items = items)
 }
 
-internal const val SITE_DOWNLOAD_PREPARATION_KEY = "sites"
+internal fun inheritLegacyPreparationState(kind: String, first: Boolean, failed: Boolean): Boolean =
+    first || kind == "preparation-folder" || (kind == "preparation-paused" && !failed)
