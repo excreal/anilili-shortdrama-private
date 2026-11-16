@@ -2,8 +2,11 @@
 
 Implementation follows `codebase-review-2026-11-03.md`. Changes include the initial batch and the completion pass.
 
-## Current release verification (2026-11-15)
+## Current release verification (2026-11-16)
 
+- Release 1.2.24 (version code 24) stores only the provider-subtitle directory and app-scoped playback helpers in process-wide objects, marks AndroidX Startup’s provider non-exported, and limits debug cleartext to loopback. The local unit suite passed (166 tests, no failures/errors/skips); `:app:lintDebug` passed with 0 errors, 116 warnings, and 4 hints. The remaining release cleartext allowance supports user-provided HTTP media URLs.
+- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.24.24-release.apk`. `apksigner verify --verbose --print-certs` passed with release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `651df9389d88190c6acce252975483d61c64169d3184601dcf3019f62c1ba552`.
+- The APK is published as `/srv/downloads/builds/app-release-651df9389d88.apk`; current, versioned, and `/srv/downloads/release/` nginx links target it. Current and versioned range requests returned `206` with the requested byte, and the published hash matches the build.
 - Release 1.2.23 (version code 23) removes the unused unfinished-download count from the library snapshot; the existing “Downloading” filter continues to exclude paused rows. The local unit suite passed (166 tests, no failures/errors/skips); the signed release build and lint-vital check passed.
 - `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.23.23-release.apk`. `apksigner verify --verbose --print-certs` passed with release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `9d36895c7dac59e9a81f7ed343e0f84041c3dbe6efee9a783bbcc5a7ad430f45`.
 - The APK is published as `/srv/downloads/builds/app-release-9d36895c7dac.apk`; current, versioned, and `/srv/downloads/release/` nginx links target it. Current and versioned range requests returned `206` with the requested byte, and the published hash matches the build.

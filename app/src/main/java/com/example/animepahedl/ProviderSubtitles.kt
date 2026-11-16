@@ -29,11 +29,11 @@ internal fun unreferencedProviderSubtitleFile(url: String, directory: File, reta
 
 /** Normalized files live outside cache so downloaded captions remain available offline. */
 internal object ProviderSubtitles {
-    private lateinit var context: Context
+    private lateinit var directory: File
     @Volatile private var downloadsReady = false
     fun markDownloadsReady() { downloadsReady = true }
     private val active = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    fun init(context: Context) { this.context = context.applicationContext }
+    fun init(context: Context) { directory = File(context.applicationContext.filesDir, "provider-subtitles") }
     fun hold(tracks: List<MediaSubtitle>) { active.addAll(tracks.map { it.url }) }
     fun release(tracks: List<MediaSubtitle>) {
         active.removeAll(tracks.map { it.url }.toSet())
@@ -41,16 +41,16 @@ internal object ProviderSubtitles {
     }
     /** Remove app-local subtitle copies when their last downloaded-video reference is deleted. */
     fun deleteUnreferenced(downloadId: String, tracks: List<MediaSubtitle>) {
-        if (!::context.isInitialized || tracks.isEmpty()) return
+        if (!::directory.isInitialized || tracks.isEmpty()) return
         val retained = DownloadStore.all().filterKeys { it != downloadId }.values
             .flatMap { it.media?.subtitles.orEmpty() }.map { it.url }.toSet() + active
-        val directory = File(context.filesDir, "provider-subtitles").canonicalFile
+        val canonicalDirectory = directory.canonicalFile
         tracks.forEach { track ->
-            unreferencedProviderSubtitleFile(track.url, directory, retained)?.delete()
+            unreferencedProviderSubtitleFile(track.url, canonicalDirectory, retained)?.delete()
         }
     }
     suspend fun localize(client: OkHttpClient, track: MediaSubtitle): MediaSubtitle = withContext(Dispatchers.IO) {
-        val directory = File(context.filesDir, "provider-subtitles").apply { mkdirs() }
+        directory.mkdirs()
         val hash = MessageDigest.getInstance("SHA-256").digest(track.url.toByteArray()).joinToString("") { "%02x".format(it) }
         val target = File(directory, "$hash.vtt")
         if (!target.isFile || target.length() == 0L) {
@@ -69,7 +69,7 @@ internal object ProviderSubtitles {
     fun trim() {
         if (!downloadsReady) return
         val retained = DownloadStore.all().values.flatMap { it.media?.subtitles.orEmpty() }.map { it.url }.toSet() + active
-        File(context.filesDir, "provider-subtitles").listFiles()?.filter { it.extension == "vtt" }
+        directory.listFiles()?.filter { it.extension == "vtt" }
             ?.filter { Uri.fromFile(it).toString() !in retained }?.sortedByDescending { it.lastModified() }?.drop(64)?.forEach { it.delete() }
     }
 }

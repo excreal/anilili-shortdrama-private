@@ -1,10 +1,17 @@
 package com.example.animepahedl
 
+import android.content.Context
+import android.content.SharedPreferences
+
 /** Stable local series IDs bridge the source player's media-session/external-return contracts. */
 internal object ReferencePlaybackRegistry {
-    private lateinit var context: android.content.Context
-    fun init(context: android.content.Context) { this.context = context.applicationContext }
-    private val prefs get() = context.getSharedPreferences("reference-player-series", android.content.Context.MODE_PRIVATE)
+    private lateinit var prefs: SharedPreferences
+    private lateinit var history: PlaybackHistory
+    fun init(context: Context) {
+        val appContext = context.applicationContext
+        prefs = appContext.getSharedPreferences("reference-player-series", Context.MODE_PRIVATE)
+        history = PlaybackHistory(appContext)
+    }
     private data class Binding(val series: Int, val episode: String)
     private val writes = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val completed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -26,7 +33,6 @@ internal object ReferencePlaybackRegistry {
         val now = android.os.SystemClock.elapsedRealtime()
         if (!force && !ended && now - (writes[identity] ?: Long.MIN_VALUE / 2) < 5_000L) return
         writes[identity] = now
-        val history = PlaybackHistory(context)
         history.save("series:${series.provider}:${series.id}", episode.url, position, identity in completed, duration)
         if (duration > 0L && position.toDouble() / duration >= com.anilili.data.settings.SettingsStore.watchedThresholdPercent.value / 100.0) history.markWatched(episode.url)
     }
@@ -51,6 +57,6 @@ internal object ReferencePlaybackRegistry {
     fun progress(id: Int, number: Double, position: Long, duration: Long, completed: Boolean) {
         val series = series(id) ?: return
         val episode = series.episodes.firstOrNull { it.displayNumber.toDoubleOrNull() == number } ?: return
-        PlaybackHistory(context).save("series:${series.provider}:${series.id}", episode.url, position, completed, duration)
+        history.save("series:${series.provider}:${series.id}", episode.url, position, completed, duration)
     }
 }
