@@ -154,7 +154,6 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
         }
     }
     val ready = snapshot.ready
-    val active = snapshot.unfinished
     val visible = snapshot.rows
     val context = LocalContext.current
     var playbackRevision by remember { mutableIntStateOf(0) }

@@ -4,6 +4,9 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-15)
 
+- Release 1.2.23 (version code 23) removes the unused unfinished-download count from the library snapshot; the existing “Downloading” filter continues to exclude paused rows. The local unit suite passed (166 tests, no failures/errors/skips); the signed release build and lint-vital check passed.
+- `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.23.23-release.apk`. `apksigner verify --verbose --print-certs` passed with release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `9d36895c7dac59e9a81f7ed343e0f84041c3dbe6efee9a783bbcc5a7ad430f45`.
+- The APK is published as `/srv/downloads/builds/app-release-9d36895c7dac.apk`; current, versioned, and `/srv/downloads/release/` nginx links target it. Current and versioned range requests returned `206` with the requested byte, and the published hash matches the build.
 - Release 1.2.22 (version code 22) replaces the inaccurate saved-location claim with “Saved offline” and shows the selected destination only for unfinished downloads. The local unit suite passed (166 tests, no failures/errors/skips); the signed release build and its lint-vital check passed.
 - `BUILD_WORKERS=1 ./build.sh release` produced signed APK `Anilili-Short-Drama-v1.2.22.22-release.apk`. `apksigner verify --verbose --print-certs` passed with release signer digest `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`. APK SHA-256 is `aa9c0d313b3f64d781bc66514a04d0575eda6439e7e618260cabd5e0f3933e7f`.
 - The APK is published as `/srv/downloads/builds/app-release-aa9c0d313b3f.apk`; current, versioned, and `/srv/downloads/release/` nginx links target it. Current and versioned range requests returned `206` with the requested byte, and the published hash matches the build.

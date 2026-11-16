@@ -1,7 +1,7 @@
-# Graph Report - AnililiShortDrama  (2026-11-15)
+# Graph Report - AnililiShortDrama  (2026-11-16)
 
 ## Corpus Check
-- 324 files · ~288,241 words
+- 324 files · ~288,343 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 38 file(s) not represented in the graph (top: .xml 22, (none) 3, .ttf 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `18147430`
+- Built from commit: `e2247752`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

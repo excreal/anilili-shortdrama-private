@@ -4,7 +4,7 @@ internal data class DownloadLibrarySnapshot(
     val source: List<DownloadRow> = emptyList(),
     val rows: List<DownloadRow> = emptyList(),
     val groups: List<Pair<String, List<DownloadRow>>> = emptyList(),
-    val ready: Int = 0, val unfinished: Int = 0, val savedBytes: Long = 0
+    val ready: Int = 0, val savedBytes: Long = 0
 )
 
 /** A show's poster belongs to its download group; episode thumbnails belong to its rows. */
@@ -36,5 +36,5 @@ internal fun downloadLibrarySnapshot(rows: List<DownloadRow>, query: String, sor
             entry.key to (oldGroups[entry.key]?.takeIf { it == sorted } ?: sorted)
         }
     return DownloadLibrarySnapshot(rows, visible, groups, rows.count { it.complete },
-        rows.count { !it.complete && !it.failed }, rows.filter { it.complete }.sumOf { it.bytes })
+        rows.filter { it.complete }.sumOf { it.bytes })
 }
