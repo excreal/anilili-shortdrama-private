@@ -198,19 +198,22 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
         true
     } catch (_: IllegalArgumentException) { error = "Import a Netscape cookie file with domain information (up to 256 KiB)."; false }
     fun clearCookies() { cookies.clear(); hasCookies = false; notice = "Session cookies removed." }
-    fun clearNartoCookiesAndRetry() {
+    fun clearNartoCookiesAndRetry() = resetNartoCookies(null)
+    fun resetPendingNarto(id: String) = resetNartoCookies(id)
+    private fun resetNartoCookies(retryId: String?) {
         if (discarding || submitting) return
         submitting = true
         viewModelScope.launch {
             try {
                 val nartoIds = pending?.batches().orEmpty().filter { it.series.provider == SiteDownloadProvider.NARTO }
                     .flatMap { batch -> batch.episodes.map { pendingEpisodeRowId(batch.series, it, batch.quality) } }
+                val resumeIds = nartoIds.filter { id -> retryId == null || id == retryId || preparationStatus.items[id]?.automatic == true }
                 for (id in nartoIds) PreparationJobs.pause(app, PreparationJobs.itemSlot(id))
                 val urls = pending?.batches().orEmpty().filter { it.series.provider == SiteDownloadProvider.NARTO }
                     .flatMap { batch -> listOf(batch.series.url) + batch.episodes.map { it.url } }
                 cookies.clearNarto(urls + listOfNotNull(preparationStatus.verificationUrl))
                 hasCookies = cookies.hasCookies
-                for (id in nartoIds) PreparationJobs.resume(app, PreparationJobs.itemSlot(id))
+                for (id in resumeIds) PreparationJobs.resume(app, PreparationJobs.itemSlot(id))
                 notice = "Narto cookies cleared. Retrying queued links."
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { error = "Could not reset Narto cookies. Retry from Downloads." }

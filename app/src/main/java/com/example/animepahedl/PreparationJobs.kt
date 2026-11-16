@@ -247,6 +247,11 @@ internal object PreparationJobs {
         DownloadStore.awaitReady()
         migrate(context)
         for (slot in itemSlots()) lock(slot).withLock {
+            // Supported site downloads use bounded retries, never a browser verification flow.
+            if (slot in DownloadStore.operations("preparation-verification")) {
+                DownloadStore.operation(slot, "preparation-verification", null)
+                DownloadStore.flush()
+            }
             if (payload(slot) != null && slot !in DownloadStore.operations("preparation-paused") &&
                 slot !in DownloadStore.operations("preparation-verification") && slot !in DownloadStore.operations("preparation-folder")) {
                 if (generation(slot) == null) {
@@ -316,11 +321,9 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
             PreparationJobs.needsFolder(slot, token)
             Result.success()
         } catch (_: ProviderAdGate) {
-            PreparationJobs.blockedByAdGate(slot, token)
-            Result.success()
-        } catch (challenge: VerificationRequired) {
-            PreparationJobs.needsVerification(slot, token, challenge.browserUrl)
-            Result.success()
+            failedAttempt()
+        } catch (_: VerificationRequired) {
+            failedAttempt()
         } catch (_: Exception) { failedAttempt() }
     }
     private val outputTree by lazy { AppSettings(applicationContext).outputTree }

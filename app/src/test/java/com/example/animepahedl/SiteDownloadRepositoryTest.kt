@@ -30,9 +30,11 @@ class SiteDownloadRepositoryTest {
         assertTrue(failure is ProviderAdGate)
         assertEquals(listOf("narto-drama.com", "edge.narto-drama.com"), requests.map { it.url.host })
     }
-    @Test fun nartoRealChallengeStillRequiresVerification() = runBlocking {
+    @Test fun nartoUnavailablePageIsRetryableWithoutSessionVerification() = runBlocking {
         val repo = repository { "<title>Just a moment</title>" }
-        assertTrue(runCatching { repo.resolve("https://edge.narto-drama.com/detail/watch/story/26") }.exceptionOrNull() is VerificationRequired)
+        val failure = runCatching { repo.resolve("https://edge.narto-drama.com/detail/watch/story/26") }.exceptionOrNull()
+        assertTrue(failure is java.io.IOException)
+        assertFalse(failure is VerificationRequired)
     }
     private val requests = mutableListOf<Request>()
     private fun repository(respond: (Request) -> String): SiteDownloadRepository {

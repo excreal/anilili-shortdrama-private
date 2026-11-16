@@ -56,4 +56,19 @@ class IndividualPreparationTest {
         assertFalse(aggregate.items.getValue("a").automatic)
         assertTrue(aggregate.items.getValue("b").automatic)
     }
+
+    @Test fun recoveryActionsBelongToTheAffectedEpisode() {
+        val ids = episodes.map { pendingEpisodeRowId(series, it) }
+        val aggregate = aggregatePreparationStatus(mapOf(
+            ids[0] to PreparationStatus(true, verificationUrl = episodes[0].url),
+            ids[1] to PreparationStatus(true, needsFolderAccess = true),
+            ids[2] to PreparationStatus(true, running = true, activeRowId = ids[2])))
+        val rows = mergePreparedQueueRows(emptyList(), SiteDownloadPreparation(series, episodes, "Best"), aggregate)
+        assertEquals(setOf(DownloadAction.DELETE, DownloadAction.RESUME), rows[0].actions)
+        assertFalse(rows[0].status.contains("verification", ignoreCase = true))
+        assertEquals(FailureReason.FOLDER_ACCESS, rows[1].failure)
+        assertFalse(rows[1].actions.contains(DownloadAction.VERIFY))
+        assertEquals("Preparing download link", rows[2].status)
+        assertTrue(rows[2].actions.contains(DownloadAction.PAUSE))
+    }
 }

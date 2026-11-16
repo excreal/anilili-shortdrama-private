@@ -24,12 +24,16 @@ internal fun mergePreparedQueueRows(actual: List<DownloadRow>, pending: SiteDown
                 title = batch.series.title + (if (batch.series.isSingleVideo) "" else " · Episode ${episode.displayNumber}") + " · ${batch.quality}",
                 transfer = if (status.paused || status.verificationUrl != null) TransferState.PAUSED else TransferState.QUEUED,
                 percent = -1f,
+                failure = when {
+                    status.needsFolderAccess -> FailureReason.FOLDER_ACCESS
+                    else -> null
+                },
                 thumbnail = batch.series.poster,
                 quality = batch.quality,
                 explanation = when {
                     status.needsFolderAccess -> "Queued · choose downloads folder"
                     status.paused -> status.label.ifBlank { "Queued · link preparation paused" }
-                    status.verificationUrl != null -> "Queued · session verification needed"
+                    status.verificationUrl != null -> "Could not prepare download link. Retry this episode."
                     status.running && status.activeRowId == pendingEpisodeRowId(batch.series, episode, batch.quality) -> "Preparing download link"
                     status.running -> "Queued · waiting for earlier episodes"
                     else -> "Queued · " + status.label.ifBlank { "waiting to prepare link" }

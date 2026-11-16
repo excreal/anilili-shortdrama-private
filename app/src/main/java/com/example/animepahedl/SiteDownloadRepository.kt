@@ -163,12 +163,12 @@ internal class SiteDownloadRepository(
         if (usable(page)) return page
         if (url.host == "edge.narto-drama.com") {
             if (SessionChecks.isAdGate(page.text)) throw ProviderAdGate()
-            throw VerificationRequired(page.url.toString())
+            throw IOException("The provider did not return a playable episode. Try again.")
         }
         val edge = fetch(english(url.newBuilder().host("edge.narto-drama.com").build()), cookie = cookie, allowChallenge = true)
         if (!usable(edge)) {
             if (SessionChecks.isAdGate(edge.text) || SessionChecks.isAdGate(page.text)) throw ProviderAdGate()
-            throw VerificationRequired(edge.url.toString())
+            throw IOException("The provider did not return a playable episode. Try again.")
         }
         return edge
     }
@@ -237,7 +237,7 @@ internal class SiteDownloadRepository(
             val text = bytes.toString(body.contentType()?.charset(Charsets.UTF_8) ?: Charsets.UTF_8)
             val challenge = SessionChecks.isChallenge(text, response.header("cf-mitigated")) ||
                 (allowChallenge && text.contains("Checking your browser", ignoreCase = true))
-            if (challenge && !allowChallenge) throw VerificationRequired(url.toString())
+            if (challenge && !allowChallenge) throw IOException("The provider returned an unavailable page. Try again.")
             if (!response.isSuccessful && !challenge) throw IOException("HTTP ${response.code} from ${response.request.url.host}. Try again or refresh provider cookies.")
             Page(text, response.request.url, challenge)
         }

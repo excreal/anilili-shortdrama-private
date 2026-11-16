@@ -108,7 +108,10 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
                 audioCode = record?.audio, quality = record?.quality, showId = record?.identity?.anime?.session.orEmpty(), episodeId = record?.identity?.episode?.session.orEmpty(), showTitle = record?.identity?.anime?.title ?: record?.showTitle.orEmpty(), episodeNumber = record?.identity?.episode?.number ?: record?.episodeNumber.orEmpty())
             when {
                 row.id in deleting -> metadata.copy(failure = FailureReason.DELETION, explanation = deleting[row.id].orEmpty().ifBlank { "Deleting…" }, deleting = true)
-                row.id in challenges -> metadata.copy(failure = FailureReason.VERIFICATION)
+                row.id in challenges -> if (record?.identity?.isSiteDownload == true)
+                    metadata.copy(transfer = TransferState.FAILED, failure = FailureReason.EXPIRED_SOURCE,
+                        explanation = "Could not download this video. Retry to prepare a fresh link.")
+                    else metadata.copy(failure = FailureReason.VERIFICATION)
                 record?.error?.isNotEmpty() == true && row.explanation == null -> metadata.copy(save = SaveState.FAILED,
                     failure = classifyFailure(record.error), explanation = record.error)
                 row.transfer == TransferState.COMPLETE && record != null -> Exports.progress[row.id]?.let {

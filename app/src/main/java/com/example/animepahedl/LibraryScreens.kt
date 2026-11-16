@@ -92,15 +92,6 @@ private fun CatalogSourceSettingRow(title: String, description: String, value: S
 
 @Composable
 internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownloadViewModel, images: ImageLoader, onChooseFolder: () -> Unit, onPlay: (DownloadRow) -> Unit, onRemove: (String) -> Unit) {
-    var verificationUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    verificationUrl?.let { url ->
-        SessionBrowser(url, onClose = { verified ->
-            verificationUrl = null
-            if (verified) siteDownload.resumeVerified(url)
-        }, onResetNarto = (siteDownload::clearNartoCookiesAndRetry).takeIf {
-            runCatching { dramaHost(siteDownloadInput(url).host, "narto-drama.com") }.getOrDefault(false)
-        })
-    }
     var query by rememberSaveable { mutableStateOf("") }
     var openGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteGroup by remember { mutableStateOf<List<DownloadRow>?>(null) }
@@ -198,14 +189,6 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                 if (!model.checkingExistingFiles) TextButton(onClick = onChooseFolder) { Text("Choose folder") }
             }
         }
-        siteDownload.pending?.let { pending -> item(key = "site-preparation", contentType = "preparation-status") {
-            PreparationStatusRow(siteDownload.preparationStatus, pending.batches().sumOf { it.episodes.size }, siteDownload::pausePreparation,
-                siteDownload::resumePreparation, siteDownload::discardPreparation,
-                onVerify = { verificationUrl = siteDownload.preparationStatus.verificationUrl }, onChooseFolder = onChooseFolder,
-                onResetNarto = (siteDownload::clearNartoCookiesAndRetry).takeIf {
-                    pending.batches().any { it.series.provider == SiteDownloadProvider.NARTO }
-                })
-        } }
         model.downloadNotice?.let { notice -> item(contentType = "download-notice") {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -288,6 +271,7 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                 val parts = row.title.split(" · ")
                 var menu by remember { mutableStateOf(false) }
                 val pendingRow = siteDownload.isPendingRow(row.id)
+                val preparation = siteDownload.preparationStatus.items[row.id]
                 val historyKey = savedRecords[row.id]?.identity?.locator?.takeIf(String::isNotBlank) ?: row.savedUri
                 val resumePosition = if (historyKey.isNotBlank()) playbackHistory.position(historyKey) else 0L
                 val watched = historyKey.isNotBlank() && playbackHistory.watched(historyKey)
@@ -315,7 +299,7 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                         playable = row.complete, failed = row.failed, watched = watched,
                         watchProgress = if (!watched && historyKey.isNotBlank()) playbackHistory.fraction(historyKey) else 0f,
                         progress = if (showProgress && row.percent >= 0) row.percent / 100f else null,
-                        indeterminate = showProgress && row.percent < 0),
+                        indeterminate = (showProgress && row.percent < 0) || preparation?.running == true),
                     images = images, selectionActive = model.selectionMode, selected = row.id in model.selectedDownloadIds,
                     onToggleSelected = { if (model.selectionMode) model.toggleDownload(row.id) else model.enterSelection(row.id) },
                     onPlay = { onPlay(row) }, controlIcon = control,
@@ -346,9 +330,15 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
                                             else if (paused) model.resumeDownload(row.id) else model.pauseDownload(row.id)
                                         })
                                     }
-                                    if (DownloadAction.VERIFY in row.actions) DropdownMenuItem(text = { Text(androidx.compose.ui.res.stringResource(R.string.ui_verify)) }, onClick = { menu = false; model.verifyDownload(row.id) })
+                                    if (DownloadAction.VERIFY in row.actions) DropdownMenuItem(text = { Text(androidx.compose.ui.res.stringResource(R.string.ui_verify)) }, onClick = {
+                                        menu = false
+                                        model.verifyDownload(row.id)
+                                    })
                                     if (DownloadAction.RETRY in row.actions) DropdownMenuItem(text = { Text(androidx.compose.ui.res.stringResource(R.string.ui_retry)) }, onClick = { menu = false; model.retryDownload(row.id) })
-                                    if (row.failure in setOf(FailureReason.FOLDER_ACCESS, FailureReason.STORAGE_FULL)) DropdownMenuItem(text = { Text(androidx.compose.ui.res.stringResource(R.string.ui_change_folder)) }, onClick = { menu = false; model.showSettings = true })
+                                    if (row.failure in setOf(FailureReason.FOLDER_ACCESS, FailureReason.STORAGE_FULL)) DropdownMenuItem(text = { Text(androidx.compose.ui.res.stringResource(R.string.ui_change_folder)) }, onClick = { menu = false; if (pendingRow) onChooseFolder() else model.showSettings = true })
+                                    if (pendingRow && preparation?.automatic == false && row.showId.startsWith("sites:NARTO:")) DropdownMenuItem(
+                                        text = { Text("Clear Narto cookies and retry this episode") },
+                                        onClick = { menu = false; siteDownload.resetPendingNarto(row.id) })
                                     if (DownloadAction.RETRY_SAVE in row.actions) DropdownMenuItem(text = { Text(androidx.compose.ui.res.stringResource(R.string.ui_retry_save)) }, onClick = { menu = false; model.retryExport(row.id) })
                                     DropdownMenuItem(
                                         text = { Text(
