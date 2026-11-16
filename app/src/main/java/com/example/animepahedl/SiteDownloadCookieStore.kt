@@ -3,6 +3,8 @@ package com.example.animepahedl
 import android.content.Context
 import androidx.core.content.edit
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /** Imported cookies stay in private preferences; only matching domains receive them. */
 internal class SiteDownloadCookieStore(context: Context) {
@@ -25,6 +27,30 @@ internal class SiteDownloadCookieStore(context: Context) {
         preferences.edit { if (normalized.isBlank()) remove("input") else putString("input", normalized) }
     }
     fun clear() = preferences.edit { remove("input") }
+
+    suspend fun clearNarto(urls: List<String>) {
+        val retained = preferences.getString("input", "").orEmpty().lineSequence().filterNot { line ->
+            val domain = line.removePrefix("#HttpOnly_").substringBefore('\t').removePrefix(".").lowercase()
+            domain == "narto-drama.com" || domain.endsWith(".narto-drama.com")
+        }.joinToString("\n")
+        preferences.edit { putString("input", retained) }
+        val manager = android.webkit.CookieManager.getInstance()
+        val targets = (urls + listOf("https://narto-drama.com/", "https://www.narto-drama.com/", "https://edge.narto-drama.com/"))
+            .mapNotNull { it.toHttpUrlOrNull() }.filter { dramaHost(it.host, "narto-drama.com") }
+        for (target in targets.distinct()) {
+            val names = manager.getCookie(target.toString()).orEmpty().split(';').map { it.substringBefore('=').trim() }.filter(String::isNotBlank)
+            val paths = (listOf("/") + target.encodedPath.indices.filter { target.encodedPath[it] == '/' }
+                .flatMap { listOf(target.encodedPath.take(it), target.encodedPath.take(it + 1)) } + target.encodedPath).filter(String::isNotBlank).distinct()
+            for (name in names) for (path in paths) for (domain in listOf("", "; Domain=${target.host}", "; Domain=.narto-drama.com")) {
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    manager.setCookie(target.toString(), "$name=; Max-Age=0; Path=$path$domain; Secure; HttpOnly") {
+                        if (continuation.isActive) continuation.resume(Unit)
+                    }
+                }
+            }
+        }
+        manager.flush()
+    }
 }
 
 /** Browser verification can refresh a session after import; never replace it with the saved snapshot. */

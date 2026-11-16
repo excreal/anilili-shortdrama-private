@@ -214,6 +214,15 @@ internal object PreparationJobs {
             }
         }
     }
+    suspend fun blockedByAdGate(slot: String, token: String) = withContext(NonCancellable) {
+        lock(slot).withLock {
+            if (!active(slot, token)) return@withLock
+            DownloadStore.operation(slot, "preparation-verification", null)
+            DownloadStore.operation(slot, "preparation-paused", "1")
+            DownloadStore.operation(slot, "preparation-error", ProviderAdGate().message)
+            DownloadStore.flush()
+        }
+    }
     suspend fun needsFolder(slot: String, token: String) = withContext(NonCancellable) {
         lock(slot).withLock {
             if (generation(slot) == token) {
@@ -295,6 +304,9 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
         } catch (_: OutputFolderAccessRequired) {
             PreparationJobs.needsFolder(slot, token)
             Result.success()
+        } catch (_: ProviderAdGate) {
+            PreparationJobs.blockedByAdGate(slot, token)
+            Result.success()
         } catch (challenge: VerificationRequired) {
             PreparationJobs.needsVerification(slot, token, challenge.browserUrl)
             Result.success()
@@ -330,6 +342,7 @@ class PreparationWorker(context: Context, parameters: WorkerParameters) : Corout
         } catch (_: TimeoutCancellationException) {
             currentCoroutineContext().ensureActive()
             false
+        } catch (gate: ProviderAdGate) { throw gate
         } catch (folder: OutputFolderAccessRequired) { throw folder
         } catch (challenge: VerificationRequired) { throw challenge
         } catch (cancelled: CancellationException) { throw cancelled

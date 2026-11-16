@@ -5,6 +5,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** Mirrors src/http.rs: a normal Cloudflare jsd script is not a CAPTCHA. */
 internal object SessionChecks {
+    fun isAdGate(body: String): Boolean = Regex("ad before watching|ads required to unlock the stream", RegexOption.IGNORE_CASE)
+        .containsMatchIn(Jsoup.parse(body).body().text())
     private val titles = listOf("just a moment", "attention required", "verify you are human", "security verification")
     private const val TOKENS = "[name=cf-turnstile-response], [name=g-recaptcha-response], [name=h-captcha-response]"
     private const val WIDGETS = ".cf-turnstile, .g-recaptcha, .h-captcha, #aws-waf-captcha-container, #challenge-form, iframe[src*=challenges.cloudflare.com], iframe[src*=hcaptcha.com], iframe[src*=google.com/recaptcha/]"
@@ -27,6 +29,8 @@ internal object SessionChecks {
         (() => {
           const state = (ready, reason) => JSON.stringify({ready, reason, url:location.href});
           if (location.protocol !== 'https:') return state(false, 'Waiting for HTTPS');
+          if (/ad before watching|ads required to unlock the stream/i.test(document.body?.innerText || ''))
+            return state(false, 'This is a provider ad gate, not session verification. Close this page or clear Narto cookies and retry.');
           if (/just a moment|attention required|verify you are human|security verification/i.test(document.title))
             return state(false, 'Waiting for verification and destination navigation');
           const visible = e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';

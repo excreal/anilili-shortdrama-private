@@ -187,6 +187,23 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
         true
     } catch (_: IllegalArgumentException) { error = "Import a Netscape cookie file with domain information (up to 256 KiB)."; false }
     fun clearCookies() { cookies.clear(); hasCookies = false; notice = "Session cookies removed." }
+    fun clearNartoCookiesAndRetry() {
+        if (discarding || submitting) return
+        submitting = true
+        viewModelScope.launch {
+            try {
+                PreparationJobs.pause(app, PreparationJobs.SITES)
+                val urls = pending?.batches().orEmpty().filter { it.series.provider == SiteDownloadProvider.NARTO }
+                    .flatMap { batch -> listOf(batch.series.url) + batch.episodes.map { it.url } }
+                cookies.clearNarto(urls + listOfNotNull(preparationStatus.verificationUrl))
+                hasCookies = cookies.hasCookies
+                PreparationJobs.resume(app, PreparationJobs.SITES)
+                notice = "Narto cookies cleared. Retrying queued links."
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { error = "Could not reset Narto cookies. Retry from Downloads." }
+            finally { submitting = false }
+        }
+    }
     fun dismissNotice() { notice = null }
     fun dismissError() { error = null }
     fun downloadEpisode(show: SiteDownloadSeries, episode: SiteDownloadEpisode, selectedQuality: String = "Best"): Boolean {

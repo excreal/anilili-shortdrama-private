@@ -19,6 +19,21 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 class SiteDownloadRepositoryTest {
+    @Test fun nartoPublishedEpisodeMetadataSurvivesEmbeddedChallenge() = runBlocking {
+        val repo = repository { """<title>Episode 26</title><div class="cf-turnstile"></div><script>const episodeItemsRaw = [{"route_episode_number":26,"play_url":"https://cdn.test/26.mp4"}];</script>""" }
+        assertEquals("https://cdn.test/26.mp4", repo.resolve("https://edge.narto-drama.com/detail/watch/story/26").url)
+        assertEquals(1, requests.size)
+    }
+    @Test fun nartoAdGateStopsWithAccurateErrorInsteadOfVerificationLoop() = runBlocking {
+        val repo = repository { "<h1>Ad before watching</h1><p>6 of 6 ads required to unlock the stream</p>" }
+        val failure = runCatching { repo.resolve("https://narto-drama.com/detail/watch/story/26") }.exceptionOrNull()
+        assertTrue(failure is ProviderAdGate)
+        assertEquals(listOf("narto-drama.com", "edge.narto-drama.com"), requests.map { it.url.host })
+    }
+    @Test fun nartoRealChallengeStillRequiresVerification() = runBlocking {
+        val repo = repository { "<title>Just a moment</title>" }
+        assertTrue(runCatching { repo.resolve("https://edge.narto-drama.com/detail/watch/story/26") }.exceptionOrNull() is VerificationRequired)
+    }
     private val requests = mutableListOf<Request>()
     private fun repository(respond: (Request) -> String): SiteDownloadRepository {
         val client = OkHttpClient.Builder().addInterceptor { chain ->

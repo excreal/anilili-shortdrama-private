@@ -33,7 +33,7 @@ import kotlin.coroutines.resume
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
-internal fun SessionBrowser(url: String, onClose: (Boolean) -> Unit) {
+internal fun SessionBrowser(url: String, onClose: (Boolean) -> Unit, onResetNarto: (() -> Unit)? = null) {
     val context = LocalContext.current
     val close by rememberUpdatedState(onClose)
     var location by remember(url) { mutableStateOf(url) }
@@ -149,6 +149,9 @@ internal fun SessionBrowser(url: String, onClose: (Boolean) -> Unit) {
                     Text(androidx.compose.ui.res.stringResource(R.string.ui_secure_browser), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f))
                     TextButton(onClick = { showHelp = true }) { Text(androidx.compose.ui.res.stringResource(R.string.ui_need_help)) }
+                }
+                if (onResetNarto != null) TextButton(onClick = { close(false); onResetNarto() }, modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Text("Clear Narto cookies and retry")
                 }
             }
                 Surface(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp).padding(bottom = 12.dp),

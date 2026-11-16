@@ -5,6 +5,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionChecksTest {
+    @Test fun identifiesAdGateWithoutCallingItACaptcha() {
+        val html = "<h1>Ad before watching</h1><p>6 of 6 ads required to unlock the stream</p>"
+        assertTrue(SessionChecks.isAdGate(html))
+        assertFalse(SessionChecks.isChallenge(html))
+        assertFalse(SessionChecks.isAdGate("<script>const label = 'Ad before watching';</script><h1>Episode 26</h1>"))
+    }
     @Test fun detectsDownloadPageCaptchaWithoutAnErrorStatus() {
         assertTrue(SessionChecks.isChallenge("<title>Download</title><div class='cf-turnstile'></div>"))
         assertTrue(SessionChecks.isChallenge("<title>Security verification</title>"))

@@ -153,11 +153,23 @@ internal class SiteDownloadRepository(
 
     private suspend fun nartoPage(url: HttpUrl, cookie: String): Page {
         fun english(target: HttpUrl) = target.newBuilder().removeAllQueryParameters("lang").addQueryParameter("lang", "en-US").fragment(null).build()
+        fun usable(page: Page): Boolean {
+            // An embedded widget must not block metadata already published for this exact episode.
+            val number = dramaRoute(url, SiteDownloadProvider.NARTO).second
+            if (number != null && runCatching { parseNartoVariants(page.text, page.url, number) }.isSuccess) return true
+            return !page.challenge && !SessionChecks.isAdGate(page.text)
+        }
         val page = fetch(english(url), cookie = cookie, allowChallenge = true)
-        if (!page.challenge) return page
-        if (url.host == "edge.narto-drama.com") throw VerificationRequired(page.url.toString())
+        if (usable(page)) return page
+        if (url.host == "edge.narto-drama.com") {
+            if (SessionChecks.isAdGate(page.text)) throw ProviderAdGate()
+            throw VerificationRequired(page.url.toString())
+        }
         val edge = fetch(english(url.newBuilder().host("edge.narto-drama.com").build()), cookie = cookie, allowChallenge = true)
-        if (edge.challenge) throw VerificationRequired(edge.url.toString())
+        if (!usable(edge)) {
+            if (SessionChecks.isAdGate(edge.text) || SessionChecks.isAdGate(page.text)) throw ProviderAdGate()
+            throw VerificationRequired(edge.url.toString())
+        }
         return edge
     }
 
@@ -231,6 +243,8 @@ internal class SiteDownloadRepository(
         }
     }
 }
+
+internal class ProviderAdGate : IOException("Narto requires ads before publishing this link. Clear Narto cookies and retry, or retry later.")
 
 /** All production entry points use this factory so pasted links and background jobs share the edition boundary. */
 internal fun appSiteDownloadRepository(cookieHeader: ((String) -> String)? = null): SiteDownloadRepository =

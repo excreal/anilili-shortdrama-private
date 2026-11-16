@@ -6,9 +6,9 @@
     "semantic_hash": ""
   },
   "app/build.gradle.kts": {
-    "mtime": 1794802905.119526,
-    "seen": 1794802912.4571154,
-    "ast_hash": "67b48624eca6b9e49d45d94a38097a36",
+    "mtime": 1794805395.2124135,
+    "seen": 1794805400.107507,
+    "ast_hash": "00ef3f06cf4e69ea692261176ad081de",
     "semantic_hash": ""
   },
   "app/schemas/com.example.animepahedl.DownloadDatabase/1.json": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/LibraryScreens.kt": {
-    "mtime": 1794802293.5828931,
-    "seen": 1794802310.556986,
-    "ast_hash": "8ada1e48ee4a13a9773a15e4351aed3b",
+    "mtime": 1794805325.6504736,
+    "seen": 1794805334.9042056,
+    "ast_hash": "4a8dfc2a67a20acba841d4812cdc0d49",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/LibraryTools.kt": {
@@ -1176,15 +1176,15 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/PreparationJobs.kt": {
-    "mtime": 1794773841.3512778,
-    "seen": 1794773867.2936766,
-    "ast_hash": "c007b6793ed713a1ab7ac57906f89fd0",
+    "mtime": 1794805274.5738597,
+    "seen": 1794805334.9042232,
+    "ast_hash": "72a03d92453f706c732f376a15e9e94a",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/PreparationUi.kt": {
-    "mtime": 1794773479.391652,
-    "seen": 1794773491.5384161,
-    "ast_hash": "4d8708e9d59a735abd062f178676af95",
+    "mtime": 1794805306.0950887,
+    "seen": 1794805334.904225,
+    "ast_hash": "8deb0dfc5453e06cf515b370e3d6a5a1",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/PreparedQueueRows.kt": {
@@ -1260,15 +1260,15 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SessionBrowser.kt": {
-    "mtime": 1794267038.1192207,
-    "seen": 1794310881.0543196,
-    "ast_hash": "ebb110e6ea88bad662fd63a9ed748eac",
+    "mtime": 1794805306.0950887,
+    "seen": 1794805334.9042468,
+    "ast_hash": "fa2dd12e763f522c7ba4660beed3f642",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SessionChecks.kt": {
-    "mtime": 1794267038.1192207,
-    "seen": 1794310881.0543218,
-    "ast_hash": "7460fe06da942183e99c92fcee57ee2e",
+    "mtime": 1794805274.5728595,
+    "seen": 1794805334.9042482,
+    "ast_hash": "979d079f8d38f9b1a4db9b7bb6f43c32",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteCatalog.kt": {
@@ -1278,9 +1278,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadCookieStore.kt": {
-    "mtime": 1794723916.737893,
-    "seen": 1794723929.1273263,
-    "ast_hash": "562afe1fa80c5b765c4c640008a81d92",
+    "mtime": 1794805306.0940888,
+    "seen": 1794805334.904251,
+    "ast_hash": "7a05ed147324cecfb33f7ddccac6cc98",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadModels.kt": {
@@ -1290,9 +1290,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadRepository.kt": {
-    "mtime": 1794722860.5860202,
-    "seen": 1794722873.365555,
-    "ast_hash": "e7e6f77e6529d89c9a331512356fd53d",
+    "mtime": 1794805274.5728595,
+    "seen": 1794805334.9042542,
+    "ast_hash": "c7236df251f7e12064010e7ee2daf296",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadScreen.kt": {
@@ -1308,9 +1308,9 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SiteDownloadViewModel.kt": {
-    "mtime": 1794547060.9889035,
-    "seen": 1794547178.446589,
-    "ast_hash": "37ffbe3633988fdfb24ddc9ebbb222db",
+    "mtime": 1794805306.0950887,
+    "seen": 1794805334.9042587,
+    "ast_hash": "1cadf4097e74382cb3b015ce2504b239",
     "semantic_hash": ""
   },
   "app/src/main/java/com/example/animepahedl/SourceOptions.kt": {
@@ -1662,9 +1662,9 @@
     "semantic_hash": ""
   },
   "app/src/test/java/com/example/animepahedl/SessionChecksTest.kt": {
-    "mtime": 1794267038.2092822,
-    "seen": 1794310881.0544493,
-    "ast_hash": "b424f32c33f46622d38cdf3b526c4e6d",
+    "mtime": 1794805325.6514738,
+    "seen": 1794805334.9043684,
+    "ast_hash": "b6470aebd6656a5f6b2c2224c9f31f2a",
     "semantic_hash": ""
   },
   "app/src/test/java/com/example/animepahedl/SiteDownloadCookieTest.kt": {
@@ -1686,9 +1686,9 @@
     "semantic_hash": ""
   },
   "app/src/test/java/com/example/animepahedl/SiteDownloadRepositoryTest.kt": {
-    "mtime": 1794267038.2092822,
-    "seen": 1794310881.054457,
-    "ast_hash": "f9d1e0a829d473112f681c0f9267a677",
+    "mtime": 1794805325.6514738,
+    "seen": 1794805334.9043748,
+    "ast_hash": "ea7d8cd22003253ef934bcd2a4aebf2b",
     "semantic_hash": ""
   },
   "app/src/test/java/com/example/animepahedl/SiteDownloadSelectionSafetyTest.kt": {
@@ -1920,9 +1920,9 @@
     "semantic_hash": ""
   },
   "docs/implementation-progress.md": {
-    "mtime": 1794803289.0946887,
-    "seen": 1794803299.9633288,
-    "ast_hash": "dbc2bb9d72add796210618b664ad0268",
+    "mtime": 1794805721.621723,
+    "seen": 1794805731.2221358,
+    "ast_hash": "57c18d292607f692daf9cd2c97edf2db",
     "semantic_hash": ""
   },
   "docs/ui-consistency-and-wrapping-audit.md": {
@@ -2049,6 +2049,24 @@
     "mtime": 1794773686.9523537,
     "seen": 1794773699.4736702,
     "ast_hash": "f2dbfca06d7ceaea1c456b096af09e00",
+    "semantic_hash": ""
+  },
+  ".codex-attachments/d4cfa8f5-499b-45c6-9d0f-718ca38df90d/268f3129-c7be-4115-8f97-44a3bb68a745/6326.jpg": {
+    "mtime": 1794805209.644266,
+    "seen": 1794805334.9044514,
+    "ast_hash": "ffcd57fe480e2b58ee59af97e95c520b",
+    "semantic_hash": ""
+  },
+  ".codex-attachments/d4cfa8f5-499b-45c6-9d0f-718ca38df90d/6ecaf46e-87d4-48f6-88ae-85192dece18e/6328.jpg": {
+    "mtime": 1794805207.7741334,
+    "seen": 1794805334.904453,
+    "ast_hash": "425ac3751eac21c83ec0b04b02c8f788",
+    "semantic_hash": ""
+  },
+  ".codex-attachments/d4cfa8f5-499b-45c6-9d0f-718ca38df90d/c9c6ef7d-4d4f-48df-a88e-8922a70a7303/6327.jpg": {
+    "mtime": 1794805208.7122,
+    "seen": 1794805334.9044547,
+    "ast_hash": "0bd505c697cbd6270cdaec7f9cf4ced6",
     "semantic_hash": ""
   }
 }

@@ -10,7 +10,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun PreparationStatusRow(status: PreparationStatus, remaining: Int, onPause: () -> Unit,
-    onResume: () -> Unit, onDiscard: () -> Unit, onVerify: (() -> Unit)? = null, onChooseFolder: (() -> Unit)? = null) {
+    onResume: () -> Unit, onDiscard: () -> Unit, onVerify: (() -> Unit)? = null, onChooseFolder: (() -> Unit)? = null,
+    onResetNarto: (() -> Unit)? = null) {
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -29,6 +30,8 @@ internal fun PreparationStatusRow(status: PreparationStatus, remaining: Int, onP
         Box {
             IconButton(onClick = { menu = true }) { AppSymbol(AppIcon.More, description = "Preparation actions") }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                if (onResetNarto != null) DropdownMenuItem(text = { Text("Clear Narto cookies and retry") },
+                    onClick = { menu = false; onResetNarto() })
                 if (!status.running && status.verificationUrl == null && !status.needsFolderAccess) {
                     DropdownMenuItem(text = { Text("Retry preparation now") }, onClick = { menu = false; onResume() })
                 }

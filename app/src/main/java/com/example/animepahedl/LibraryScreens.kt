@@ -97,6 +97,8 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
         SessionBrowser(url, onClose = { verified ->
             verificationUrl = null
             if (verified && siteDownload.preparationStatus.verificationUrl == url) siteDownload.resumePreparation()
+        }, onResetNarto = (siteDownload::clearNartoCookiesAndRetry).takeIf {
+            runCatching { dramaHost(siteDownloadInput(url).host, "narto-drama.com") }.getOrDefault(false)
         })
     }
     var query by rememberSaveable { mutableStateOf("") }
@@ -199,7 +201,10 @@ internal fun DownloadsScreen(model: DownloaderViewModel, siteDownload: SiteDownl
         siteDownload.pending?.let { pending -> item(key = "site-preparation", contentType = "preparation-status") {
             PreparationStatusRow(siteDownload.preparationStatus, pending.batches().sumOf { it.episodes.size }, siteDownload::pausePreparation,
                 siteDownload::resumePreparation, siteDownload::discardPreparation,
-                onVerify = { verificationUrl = siteDownload.preparationStatus.verificationUrl }, onChooseFolder = onChooseFolder)
+                onVerify = { verificationUrl = siteDownload.preparationStatus.verificationUrl }, onChooseFolder = onChooseFolder,
+                onResetNarto = (siteDownload::clearNartoCookiesAndRetry).takeIf {
+                    pending.batches().firstOrNull()?.series?.provider == SiteDownloadProvider.NARTO
+                })
         } }
         model.downloadNotice?.let { notice -> item(contentType = "download-notice") {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
