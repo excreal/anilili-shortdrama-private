@@ -41,6 +41,39 @@ class DramaPlayerGesturesTest {
         }
     }
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @Test fun manualPagingSwitchesMediaAndKeepsOnePlayerView() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val entries = (0..2).map { com.example.animepahedl.components.DramaPlayerEpisode("swipe-$it", "swipe-history-$it", "Episode ${it + 1}") }
+        compose.setContent {
+            com.example.animepahedl.components.DramaPlayerSurface("Swipe regression", "swipe-regression", entries,
+                entries[0].id, onClose = {}, resolve = { index ->
+                    // Missing local media is deliberate: the timeline must still switch to the
+                    // requested item, and a load error must not restore the preceding episode.
+                    androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(
+                        androidx.media3.datasource.DefaultDataSource.Factory(context)
+                    ).createMediaSource(androidx.media3.common.MediaItem.Builder()
+                        .setMediaId(entries[index].id).setUri("file:///missing-swipe-$index.mp4").build())
+                })
+        }
+        var original: androidx.media3.ui.PlayerView? = null
+        fun assertSelected(index: Int) {
+            compose.waitForIdle()
+            androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(androidx.media3.ui.PlayerView::class.java))
+                .check { view, error ->
+                    if (error != null) throw error
+                    val output = view as androidx.media3.ui.PlayerView
+                    if (original == null) original = output else org.junit.Assert.assertSame(original, output)
+                    assertEquals(entries[index].id, output.player?.currentMediaItem?.mediaId)
+                }
+        }
+        assertSelected(0)
+        compose.onNodeWithTag("drama-pager").performTouchInput { swipeUp(durationMillis = 300) }
+        assertSelected(1)
+        compose.onNodeWithTag("drama-pager").performTouchInput { swipeUp(durationMillis = 300) }
+        assertSelected(2)
+    }
+
     @Test fun tapDoesNotChangeSpeed() {
         showGestureSurface()
         compose.onNodeWithTag("video").performTouchInput { click() }

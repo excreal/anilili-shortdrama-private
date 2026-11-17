@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import com.anilili.ui.theme.LocalAppColors
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,9 +63,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.animepahedl.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 internal data class DramaPlayerEpisode(val id: String, val historyKey: String, val label: String)
@@ -150,7 +150,7 @@ internal fun DramaPlayerSurface(
                 if (state == Player.STATE_ENDED) {
                     persist(true)
                     val next = pager.settledPage + 1
-                    if (next < latestEpisodes.size && foreground && autoNext) scope.launch { pager.animateScrollToPage(next) }
+                    if (next < latestEpisodes.size && foreground && autoNext && !pager.isScrollInProgress && loaded?.id == latestEpisodes.getOrNull(pager.settledPage)?.id) scope.launch { pager.animateScrollToPage(next) }
                 }
             }
             override fun onPlayerError(failure: PlaybackException) {
@@ -192,38 +192,42 @@ internal fun DramaPlayerSurface(
     LaunchedEffect(player, seriesKey) {
         while (true) { delay(5_000); if (player?.playbackState == Player.STATE_READY && loaded != null) persist() }
     }
-    LaunchedEffect(player, seriesKey, retry) {
-        snapshotFlow { pager.settledPage }.distinctUntilChanged().collectLatest { page ->
-            val episode = episodes.getOrNull(page) ?: return@collectLatest
-            persist()
-            loaded = null
-            loadedReady = false
-            player?.stop(); player?.clearMediaItems()
-            error = creation.exceptionOrNull()?.let { "The video player could not start. Close and try again." }
-            loading = player != null
-            if (player != null) try {
-                val source = latestResolve(page)
-                loaded = episode
-                player.setMediaSource(source, history.position(episode.historyKey))
-                player.prepare()
-                player.playWhenReady = foreground && playOnOpen
-                resumeAfterPause = playOnOpen
-            } catch (cancelled: CancellationException) { throw cancelled
-            } catch (failure: Exception) {
-                DebugTrace.event("drama_source_resolution_error",
-                    "series_key" to seriesKey,
-                    "episode_id" to episode.id,
-                    "episode_history_key" to episode.historyKey,
-                    "error_type" to failure.javaClass.name,
-                    "error_message" to failure.message,
-                    "error_stack" to failure.stackTraceToString())
-                if (latestPlaybackFailure?.invoke(page, failure) == true) {
-                    retry++
-                    return@collectLatest
-                }
-                loading = false
-                error = failure.message?.takeIf(String::isNotBlank) ?: "Could not prepare this episode."
+    val selectedPage = pager.settledPage
+    val selectedEpisode = episodes[selectedPage.coerceIn(episodes.indices)]
+    LaunchedEffect(player, seriesKey, selectedEpisode.id, retry) {
+        val page = selectedPage
+        val episode = selectedEpisode
+        persist()
+        loaded = null
+        loadedReady = false
+        player?.stop(); player?.clearMediaItems()
+        error = creation.exceptionOrNull()?.let { "The video player could not start. Close and try again." }
+        loading = player != null
+        if (player != null) try {
+            val source = latestResolve(page)
+            // A cancelled or superseded resolver must never replace the selected episode.
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (latestEpisodes.getOrNull(pager.settledPage)?.id != episode.id) return@LaunchedEffect
+            loaded = episode
+            player.setMediaSource(source, history.position(episode.historyKey))
+            player.prepare()
+            player.playWhenReady = foreground && playOnOpen
+            resumeAfterPause = playOnOpen
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            DebugTrace.event("drama_source_resolution_error",
+                "series_key" to seriesKey,
+                "episode_id" to episode.id,
+                "episode_history_key" to episode.historyKey,
+                "error_type" to failure.javaClass.name,
+                "error_message" to failure.message,
+                "error_stack" to failure.stackTraceToString())
+            if (latestPlaybackFailure?.invoke(page, failure) == true) {
+                retry++
+                return@LaunchedEffect
             }
+            loading = false
+            error = failure.message?.takeIf(String::isNotBlank) ?: "Could not prepare this episode."
         }
     }
     LaunchedEffect(playing, chooser, controlsVisible, scrubbing, interaction, foreground, loading, error, boosting, speedMenu, screenReaderActive) {
@@ -238,15 +242,17 @@ internal fun DramaPlayerSurface(
     CompositionLocalProvider(LocalAppColors provides playerColors) {
     MaterialTheme(colorScheme = playerColors.scheme) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        VerticalPager(pager, modifier = Modifier.fillMaxSize(), key = { episodes[it].id }, beyondViewportPageCount = 0) { page ->
+        // One stable output surface for the sole decoder. Pager disposal must not detach
+        // a surface after a newly settled page has attached the same player.
+        if (player != null) AndroidView(
+            factory = { PlayerView(it).apply { useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT; setKeepContentOnPlayerReset(false) } },
+            modifier = Modifier.fillMaxSize(),
+            update = { it.player = player; it.keepScreenOn = foreground && playing },
+            onRelease = { it.player = null; it.keepScreenOn = false },
+        )
+        VerticalPager(pager, modifier = Modifier.fillMaxSize().testTag("drama-pager"), key = { episodes[it].id }, beyondViewportPageCount = 0) { page ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (page == pager.settledPage) {
-                    if (player != null) AndroidView(
-                        factory = { PlayerView(it).apply { useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT; setKeepContentOnPlayerReset(false) } },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { it.player = player; it.keepScreenOn = foreground && playing },
-                        onRelease = { it.player = null; it.keepScreenOn = false },
-                    )
                     if (!loading && error == null && player != null) Box(
                         Modifier.fillMaxSize().semantics {
                             onClick(label = "Show player controls") {

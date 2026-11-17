@@ -2,7 +2,13 @@
 
 Implementation follows `codebase-review-2026-11-03.md`. Changes include the initial batch and the completion pass.
 
-## Current release verification (2026-11-16)
+## Current release verification (2026-11-17)
+
+- Release 1.2.29 (version code 29) keeps one PlayerView outside the vertical pager for both local and online drama playback. Selection now keys the load effect directly by settled episode identity; cancellation and identity checks reject stale resolver results. Automatic advance cannot compete with an in-progress swipe. This addresses the shared surface handoff and selection path behind the reported changing episode details with stale video; phone reproduction remains unverified.
+- Reverted the uncommitted change to the separate reference player’s subtitle signature because it did not cover the reported vertical player path. Added an Android regression test that swipes through three episode items, checks the actual selected MediaItem, and asserts the same PlayerView remains attached.
+- `:app:compileDebugAndroidTestKotlin` and `:app:testDebugUnitTest` passed (176 unit tests, zero failures/errors/skips). No Android device is connected; the new swipe test was compiled but not executed.
+
+## Previous release verification (2026-11-16)
 
 - Release 1.2.28 signed build and release lint-vital passed. APK signer matches `df6fcad0dd936146c3505209b93cfa10d6ab08e229e021ca705b3743f008a8b5`; APK SHA-256 is `11519b74151a167a999d394a69c726a873296944ad258aafb8e20c12942ce0d2`. Published `/srv/downloads/builds/app-release-11519b74151a.apk` matches the build. Current and versioned nginx symlinks serve HTTP 206 for byte-range requests. Application changes were pushed to GitHub main as `209eb6b`.
 - Release 1.2.28 (version code 28) removes the global preparation summary from Downloads. Active preparation uses the affected episode’s indeterminate progress bar and status; recovery actions live in that episode’s menu. Narto cookie reset from an episode preserves other manually paused episodes. The unused batch status component is removed.
