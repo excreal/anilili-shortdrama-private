@@ -4,6 +4,7 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-17)
 
+- Signed 1.2.29 build and release lint-vital passed. APK SHA-256: `24529966b51c6b1a98635f1f9318892baf1dee7c151588fc3bd8534da9c03ea4`; verified with the existing release signer. Published as `/srv/downloads/builds/app-release-24529966b51c.apk`, with current and versioned nginx links returning HTTP 206 for requested byte ranges. Application and Graphify changes were pushed to GitHub main as `5731c80`.
 - Release 1.2.29 (version code 29) keeps one PlayerView outside the vertical pager for both local and online drama playback. Selection now keys the load effect directly by settled episode identity; cancellation and identity checks reject stale resolver results. Automatic advance cannot compete with an in-progress swipe. This addresses the shared surface handoff and selection path behind the reported changing episode details with stale video; phone reproduction remains unverified.
 - Reverted the uncommitted change to the separate reference player’s subtitle signature because it did not cover the reported vertical player path. Added an Android regression test that swipes through three episode items, checks the actual selected MediaItem, and asserts the same PlayerView remains attached.
 - `:app:compileDebugAndroidTestKotlin` and `:app:testDebugUnitTest` passed (176 unit tests, zero failures/errors/skips). No Android device is connected; the new swipe test was compiled but not executed.
