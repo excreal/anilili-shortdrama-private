@@ -4,6 +4,12 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-17)
 
+- Signed 1.2.31 build and release lint-vital passed; debug lint passed with 0 errors, 83 warnings and 4 hints. APK SHA-256 `3f28e60b3095f318b574e5fedfb9f6c0e7561f13c9fef975fd8d707342ccea22` matches the published `/srv/downloads/builds/app-release-3f28e60b3095.apk`; signer matches the existing release key. Current, versioned and release-directory nginx download links returned HTTP 206 for byte-range requests.
+
+- Release 1.2.31 (version code 31) forwards Media3 network requirement and waiting-state changes to both download rows and the foreground notification. Eligible persisted transient failures retry when requirements become satisfied; scheduled retries wait while offline. Global/manual item pauses remain respected. Wi-Fi-only waits now identify the unmetered-network requirement instead of claiming there is no internet.
+- Returning to the foreground retries eligible failures and restarts the service for unpaused queued/active transfers, recovering from Android background service-start restrictions. Added the scheduler restart intent filter required by the [Media3 service contract](https://developer.android.com/media/media3/exoplayer/downloading-media); this is configuration hardening, not a claim that PlatformScheduler drives reconnects on the app’s Android 15+ minimum.
+- Added an instrumentation test using the real Media3 manager and a deterministic unmet requirement to cover failed-transfer recovery and preservation of manual pause, plus a test resolving the packaged restart intent. Both compile; no connected Android device is available to execute them or perform a radio disconnect/reconnect test. The JVM suite passed (186 tests, zero failures/errors, one opt-in Narto live-capture test skipped).
+
 - Signed 1.2.30 release build, bundled test run and release lint-vital passed. APK SHA-256: `6cc3aebd67156415610e05e7d3fcab8bf94b146995d5748f35dbd7d9496ac54d`; signer matches the existing release key. Published `/srv/downloads/builds/app-release-6cc3aebd6715.apk`; current, versioned and release-directory nginx links return HTTP 206 for byte-range requests.
 
 - Narto adapter validation: 185 JVM tests passed with zero failures, errors or skips, including the opt-in replay of fresh public captures. `:app:lintDebug` passed with 0 errors, 83 warnings and 4 hints. Graphify was updated after the changes.

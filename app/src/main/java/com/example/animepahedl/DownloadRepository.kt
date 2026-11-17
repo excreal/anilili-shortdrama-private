@@ -73,7 +73,8 @@ internal class AndroidDownloadRepository(private val app: Context, private val n
                     else -> TransferState.QUEUED
                 }
                 rows += DownloadRow(download.request.id, String(download.request.data), status, download.percentDownloaded,
-                    download.bytesDownloaded, download.contentLength)
+                    download.bytesDownloaded, download.contentLength,
+                    explanation = if (status == TransferState.WAITING_NETWORK) downloadRequirementsMessage(requirements) else null)
             }
         }
         val exports = Exports.all(app)

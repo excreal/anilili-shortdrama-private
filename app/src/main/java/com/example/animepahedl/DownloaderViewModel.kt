@@ -117,6 +117,18 @@ class DownloaderViewModel(application: Application, private val repository: Anim
             savedFilesPolling = viewModelScope.launch {
                 try {
                     DownloadStore.awaitReady()
+                    // Android may reject a reconnect-triggered service start while backgrounded.
+                    // Returning to the foreground is a permitted opportunity to resume queued work.
+                    if (outputAccessGranted && DownloadStore.operations("folder-access")["transfers"] == null) {
+                        val manager = OfflineDownloads.manager(app)
+                        if (!manager.downloadsPaused) {
+                            OfflineDownloads.retryPending(app, manager)
+                            if (manager.currentDownloads.any { it.state == Download.STATE_QUEUED || it.state == Download.STATE_DOWNLOADING }) {
+                                runCatching { DownloadService.startForeground(app, OfflineDownloadService::class.java) }
+                                    .onFailure { downloadNotice = "Downloads could not resume. Tap Resume to try again." }
+                            }
+                        }
+                    }
                     savedFilesWatcher.updateRoots()
                     refreshSavedFiles()
                     while (true) {

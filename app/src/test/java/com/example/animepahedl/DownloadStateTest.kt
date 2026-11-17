@@ -5,6 +5,14 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DownloadStateTest {
+    @Test fun networkWaitDistinguishesDisconnectedFromUnmeteredPolicy() {
+        val network = androidx.media3.exoplayer.scheduler.Requirements.NETWORK
+        val unmetered = androidx.media3.exoplayer.scheduler.Requirements.NETWORK_UNMETERED
+        assertEquals("Waiting for internet", downloadRequirementsMessage(network or unmetered))
+        assertEquals("Waiting for Wi-Fi or an unmetered network", downloadRequirementsMessage(unmetered))
+        assertNull(downloadRequirementsMessage(0))
+    }
+
     private fun saved(failure: FailureReason?) = DownloadRow(
         id = "saved",
         title = "Saved video",

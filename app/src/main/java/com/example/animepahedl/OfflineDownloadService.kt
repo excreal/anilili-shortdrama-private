@@ -56,7 +56,7 @@ object OfflineDownloads {
     }
 
     internal fun retryPending(context: Context, manager: DownloadManager) {
-        if (manager.downloadsPaused) return
+        if (!manager.isInitialized || manager.downloadsPaused || manager.notMetRequirements != 0) return
         val retries = context.getSharedPreferences("download-retries", Context.MODE_PRIVATE)
         val requests = mutableListOf<androidx.media3.exoplayer.offline.DownloadRequest>()
         manager.downloadIndex.getDownloads(Download.STATE_FAILED).use { cursor ->
@@ -110,6 +110,7 @@ object OfflineDownloads {
             it.addListener(object : DownloadManager.Listener {
                 override fun onDownloadsPausedChanged(manager: DownloadManager, downloadsPaused: Boolean) {
                     if (!downloadsPaused && (!hasOutputFolderAccess(app) || DownloadStore.operations("folder-access")["transfers"] != null)) manager.pauseDownloads()
+                    updates.tryEmit(Unit)
                 }
                 override fun onInitialized(manager: DownloadManager) {
                     retryPending(app, manager)
@@ -140,7 +141,8 @@ object OfflineDownloads {
                             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                                 val current = manager.downloadIndex.getDownload(id)
                                 if (retries.getBoolean(id, false) && !Exports.deleting(id) &&
-                                    current?.state == Download.STATE_FAILED && current.stopReason == Download.STOP_REASON_NONE && !manager.downloadsPaused)
+                                    current?.state == Download.STATE_FAILED && current.stopReason == Download.STOP_REASON_NONE &&
+                                    !manager.downloadsPaused && manager.notMetRequirements == 0)
                                     manager.addDownload(current.request)
                             }, 30_000)
                         } else retries.edit { remove(id) }
@@ -159,6 +161,10 @@ object OfflineDownloads {
                     updates.tryEmit(Unit)
                 }
             })
+            it.addListener(DownloadRequirementsListener(
+                onReady = { manager -> retryPending(app, manager) },
+                onChanged = { updates.tryEmit(Unit) },
+            ))
             it.setRequirements(androidx.media3.exoplayer.scheduler.Requirements(if (AppSettings(app).unmeteredOnly) androidx.media3.exoplayer.scheduler.Requirements.NETWORK_UNMETERED else androidx.media3.exoplayer.scheduler.Requirements.NETWORK))
             it.minRetryCount = 10
             it.maxParallelDownloads = AppSettings(app).simultaneousDownloads
@@ -175,6 +181,9 @@ internal data class MediaVerification(val id: String, val url: String, val brows
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class OfflineDownloadService : DownloadService(1, 1000L, "downloads", R.string.download_channel, 0) {
+    private val requirementsListener = DownloadRequirementsListener(
+        onReady = {}, onChanged = { invalidateForegroundNotification() },
+    )
     private val wakeLock by lazy {
         (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
             .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "$packageName:offline-downloads")
@@ -183,11 +192,13 @@ class OfflineDownloadService : DownloadService(1, 1000L, "downloads", R.string.d
 
     override fun onCreate() {
         super.onCreate()
+        OfflineDownloads.manager(this).addListener(requirementsListener)
         // A foreground service alone does not keep the CPU awake on aggressive OEM builds.
         if (!wakeLock.isHeld) wakeLock.acquire(6 * 60 * 60_000L)
     }
 
     override fun onDestroy() {
+        OfflineDownloads.manager(this).removeListener(requirementsListener)
         if (wakeLock.isHeld) wakeLock.release()
         super.onDestroy()
     }
@@ -208,7 +219,7 @@ class OfflineDownloadService : DownloadService(1, 1000L, "downloads", R.string.d
         val title = if (active.size == 1) String(active[0].request.data).ifBlank { "Downloading episode" }
             else if (active.size > 1) "Downloading ${active.size} episodes" else "Downloads"
         val text = when {
-            notMetRequirements != 0 -> "Waiting for internet"
+            notMetRequirements != 0 -> downloadRequirementsMessage(notMetRequirements) ?: "Waiting to download"
             active.isEmpty() -> "Waiting to download"
             else -> listOfNotNull(percent?.let { if (active.size > 1) "Average $it%" else "$it%" }, rate.takeIf { it > 0 }?.let { "${Formatter.formatShortFileSize(this, it)}/s" }).joinToString(" · ").ifEmpty { "Downloading" }
         }
