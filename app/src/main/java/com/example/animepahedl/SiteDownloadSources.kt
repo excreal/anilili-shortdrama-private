@@ -171,14 +171,20 @@ internal fun cleanDramaTitle(raw: String, provider: SiteDownloadProvider): Strin
     else -> raw
 }.trim()
 internal fun parseDramaSeries(html: String, url: HttpUrl, provider: SiteDownloadProvider, slug: String): SiteDownloadSeries {
-    val (rawTitle, poster) = dramaMetadata(html, url)
+    val doc = Jsoup.parse(html, url.toString())
+    val rawTitle = doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim().orEmpty().ifBlank { doc.title().trim() }
+    val poster = doc.selectFirst("meta[property=og:image]")?.attr("content")?.takeIf(String::isNotBlank)
+        ?.let { runCatching { dramaAbsolute(url, it) }.getOrDefault("") }.orEmpty()
     val title = cleanDramaTitle(rawTitle, provider).ifBlank { slug }
     val episodes = sortedMapOf<Int, SiteDownloadEpisode>()
     val base = if (provider == SiteDownloadProvider.DRAMATIP) url.newBuilder().encodedPath(url.encodedPath.trimEnd('/') + "/").build() else url
     val selector = when (provider) { SiteDownloadProvider.NARTO -> "a.episode-item[href]"; SiteDownloadProvider.HUANGGUO -> "a.hg-web-play__ep[href]"; else -> "a[href]" }
-    Jsoup.parse(html).select(selector).forEach { a ->
+    doc.select(selector).forEach { a ->
         val target = base.resolve(a.attr("href")) ?: return@forEach
-        if (target.host != url.host) return@forEach
+        if (target.scheme != "https" || target.username.isNotEmpty() || target.password.isNotEmpty()) return@forEach
+        if (provider == SiteDownloadProvider.NARTO) {
+            if (runCatching { siteDownloadProvider(target) }.getOrNull() != provider) return@forEach
+        } else if (target.host != url.host) return@forEach
         val route = runCatching { dramaRoute(target, provider) }.getOrNull() ?: return@forEach
         val number = route.second ?: return@forEach
         if (route.first == slug) episodes[number] = SiteDownloadEpisode(target.toString(), number, "$title · Episode $number", target.toString())
@@ -193,7 +199,7 @@ internal fun parseDramaSeries(html: String, url: HttpUrl, provider: SiteDownload
         }
     }
     if (episodes.isEmpty()) throw IOException("The provider returned no available episodes.")
-    return SiteDownloadSeries(provider, "${provider.name}:$slug", title, poster, url.toString(), episodes.values.toList(), description = Jsoup.parse(html).selectFirst("meta[property=og:description],meta[name=description]")?.attr("content").orEmpty())
+    return SiteDownloadSeries(provider, "${provider.name}:$slug", title, poster, url.toString(), episodes.values.toList(), description = doc.selectFirst("meta[property=og:description],meta[name=description]")?.attr("content").orEmpty())
 }
 internal fun dramaJsonAfter(text: String, marker: Regex): JsonElement? {
     val match = marker.find(text) ?: return null
@@ -263,6 +269,27 @@ internal fun parseNartoVariants(body: String, url: HttpUrl, number: Int): List<D
         ?: throw IOException("Narto episode metadata is missing.")
     val episode = items.firstOrNull { it.isJsonObject && it.asJsonObject.dramaInt("route_episode_number") == number }?.asJsonObject
         ?: throw IOException("Requested Narto episode is unavailable.")
+    episode.dramaString("watch_url").takeIf(String::isNotBlank)?.let { raw ->
+        val watch = url.resolve(raw)
+        val expected = dramaRoute(url, SiteDownloadProvider.NARTO).first to number
+        if (watch == null || watch.scheme != "https" || watch.username.isNotEmpty() || watch.password.isNotEmpty() ||
+            runCatching { siteDownloadProvider(watch) == SiteDownloadProvider.NARTO && dramaRoute(watch, SiteDownloadProvider.NARTO) == expected }.getOrDefault(false).not()) {
+            throw IOException("Narto returned media for a different episode. Retry the original link.")
+        }
+    }
+    val subtitles = buildList {
+        fun addTrack(raw: String, label: String, language: String) {
+            val target = runCatching { dramaAbsolute(url, raw).toHttpUrl() }.getOrNull()
+            if (raw.isNotBlank() && target?.scheme == "https") add(MediaSubtitle(target.toString(), label, language.ifBlank { "und" }))
+        }
+        episode.dramaArray("multi_subtitles").filter { it.isJsonObject }.forEach { value ->
+            val track = value.asJsonObject
+            addTrack(track.dramaString("subtitle_url"), track.dramaString("label", "language_code").ifBlank { "Subtitles" }, track.dramaString("language_code"))
+        }
+        listOf("subtitle_url", "direct_subtitle_url").forEach { key ->
+            addTrack(episode.dramaString(key), "Subtitles", episode.dramaString("selected_subtitle_language"))
+        }
+    }.distinctBy { it.url }
     // Narto's direct_play_url can be a legacy Vigloo origin that returns HTTP 410
     // while play_url still points to the current, playable HLS stream. Keep every
     // distinct source, but try the browser's active source before that legacy URL.
@@ -282,7 +309,7 @@ internal fun parseNartoVariants(body: String, url: HttpUrl, number: Int): List<D
             target.encodedPath.endsWith(".webm", true) || target.queryParameter("mime_type") == "video/webm" -> "video/webm"
             else -> "video/mp4"
         }
-        DramaVariant(media, mimeType = mime)
+        DramaVariant(media, mimeType = mime, subtitles = subtitles)
     }.groupBy { it.url }.values.map { candidates ->
         // The same opaque URL may be advertised in both the direct and browser
         // fields. Keep the explicit HLS classification if either field provides it.

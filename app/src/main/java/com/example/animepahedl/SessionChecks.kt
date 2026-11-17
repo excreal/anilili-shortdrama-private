@@ -11,10 +11,11 @@ internal object SessionChecks {
     private const val TOKENS = "[name=cf-turnstile-response], [name=g-recaptcha-response], [name=h-captcha-response]"
     private const val WIDGETS = ".cf-turnstile, .g-recaptcha, .h-captcha, #aws-waf-captcha-container, #challenge-form, iframe[src*=challenges.cloudflare.com], iframe[src*=hcaptcha.com], iframe[src*=google.com/recaptcha/]"
 
-    fun isChallenge(body: String, mitigated: String? = null): Boolean {
+    fun isChallenge(body: String, mitigated: String? = null, includeWidgets: Boolean = true): Boolean {
         if (mitigated.equals("challenge", true)) return true
         val document = Jsoup.parse(body)
         if (titles.any { document.title().contains(it, true) }) return true
+        if (!includeWidgets) return false
         val solved = document.select(TOKENS).any { it.`val`().isNotBlank() || it.text().isNotBlank() }
         return !solved && document.select(WIDGETS).any { element ->
             (listOf(element) + element.parents()).none { ancestor ->

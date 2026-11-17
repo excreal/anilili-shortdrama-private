@@ -4,6 +4,15 @@ Implementation follows `codebase-review-2026-11-03.md`. Changes include the init
 
 ## Current release verification (2026-11-17)
 
+- Signed 1.2.30 release build, bundled test run and release lint-vital passed. APK SHA-256: `6cc3aebd67156415610e05e7d3fcab8bf94b146995d5748f35dbd7d9496ac54d`; signer matches the existing release key. Published `/srv/downloads/builds/app-release-6cc3aebd6715.apk`; current, versioned and release-directory nginx links return HTTP 206 for byte-range requests.
+
+- Narto adapter validation: 185 JVM tests passed with zero failures, errors or skips, including the opt-in replay of fresh public captures. `:app:lintDebug` passed with 0 errors, 83 warnings and 4 hints. Graphify was updated after the changes.
+
+- Release 1.2.30 (version code 30) fixes Narto series inspection rejecting valid episode inventories because of embedded Turnstile widgets. The metadata transport distinguishes optional widgets from blocked responses, and the link error no longer recommends importing a session.
+- Reviewed Narto browse/search/provider pagination, taxonomy, detail and episode metadata, link validation, media source order and subtitles against fresh public captures. Details retain complete inventory across partial hydration, derive distinct missing episode URLs, reject cross-title redirects and invalid cards, and avoid redundant hydration when metadata is embedded. Series parsing reuses one document; published subtitles now reach playback/download resolution.
+- Live episode 26 of “My X-Ray Vision is Too OP” downloaded a valid 4.422-second sample with H.264 540×960 video and AAC stereo audio. The direct fallback returned HTTP 403; the primary source worked. Android playback/download UI was not exercised because no device is connected.
+
+
 - Signed 1.2.29 build and release lint-vital passed. APK SHA-256: `24529966b51c6b1a98635f1f9318892baf1dee7c151588fc3bd8534da9c03ea4`; verified with the existing release signer. Published as `/srv/downloads/builds/app-release-24529966b51c.apk`, with current and versioned nginx links returning HTTP 206 for requested byte ranges. Application and Graphify changes were pushed to GitHub main as `5731c80`.
 - Release 1.2.29 (version code 29) keeps one PlayerView outside the vertical pager for both local and online drama playback. Selection now keys the load effect directly by settled episode identity; cancellation and identity checks reject stale resolver results. Automatic advance cannot compete with an in-progress swipe. This addresses the shared surface handoff and selection path behind the reported changing episode details with stale video; phone reproduction remains unverified.
 - Reverted the uncommitted change to the separate reference player’s subtitle signature because it did not cover the reported vertical player path. Added an Android regression test that swipes through three episode items, checks the actual selected MediaItem, and asserts the same PlayerView remains attached.

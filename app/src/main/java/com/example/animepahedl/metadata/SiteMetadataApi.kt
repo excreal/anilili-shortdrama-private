@@ -81,6 +81,7 @@ internal data class MetadataResponse(val url: String, val text: String, val cont
 /** Bounded, cancellable, same-provider requests. Imported/session cookies are scoped on every hop. */
 internal class MetadataHttp(private val hosts: Set<String>, private val cookieHeader: ((String) -> String)? = null,
     private val accept: String = "application/json,text/html;q=0.9,*/*;q=0.8",
+    private val allowEmbeddedWidgets: Boolean = false,
     client: OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(35, TimeUnit.SECONDS).callTimeout(50, TimeUnit.SECONDS).build()) {
     private val sessions = CatalogSessionCookies()
@@ -110,7 +111,10 @@ internal class MetadataHttp(private val hosts: Set<String>, private val cookieHe
             val bytes = response.body.byteStream().use { it.readNBytes(limit + 1) }
             if (bytes.size > limit) throw IOException("Source metadata exceeds the response size limit.")
             val text = bytes.toString(response.body.contentType()?.charset(Charsets.UTF_8) ?: Charsets.UTF_8)
-            if (SessionChecks.isChallenge(text, response.header("cf-mitigated"))) throw VerificationRequired(target.toString())
+            if (SessionChecks.isChallenge(text, response.header("cf-mitigated"), includeWidgets = !allowEmbeddedWidgets)) {
+                if (allowEmbeddedWidgets) throw IOException("The provider metadata is temporarily unavailable. Try again.")
+                throw VerificationRequired(target.toString())
+            }
             if (!response.isSuccessful) throw IOException("${target.host} metadata returned HTTP ${response.code}.")
             MetadataResponse(response.request.url.toString(), text, response.header("Content-Type").orEmpty())
         }

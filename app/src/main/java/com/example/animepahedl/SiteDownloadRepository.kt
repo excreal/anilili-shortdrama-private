@@ -154,9 +154,15 @@ internal class SiteDownloadRepository(
     private suspend fun nartoPage(url: HttpUrl, cookie: String): Page {
         fun english(target: HttpUrl) = target.newBuilder().removeAllQueryParameters("lang").addQueryParameter("lang", "en-US").fragment(null).build()
         fun usable(page: Page): Boolean {
-            // An embedded widget must not block metadata already published for this exact episode.
-            val number = dramaRoute(url, SiteDownloadProvider.NARTO).second
-            if (number != null && runCatching { parseNartoVariants(page.text, page.url, number) }.isSuccess) return true
+            // Detail pages also embed Turnstile for optional site features. Public episode
+            // inventory remains usable without interacting with those widgets.
+            validateEpisodePage(url, page.url, SiteDownloadProvider.NARTO)
+            val (slug, number) = dramaRoute(url, SiteDownloadProvider.NARTO)
+            val published = runCatching {
+                if (number == null) parseDramaSeries(page.text, page.url, SiteDownloadProvider.NARTO, slug)
+                else parseNartoVariants(page.text, page.url, number)
+            }.isSuccess
+            if (published) return true
             return !page.challenge && !SessionChecks.isAdGate(page.text)
         }
         val page = fetch(english(url), cookie = cookie, allowChallenge = true)

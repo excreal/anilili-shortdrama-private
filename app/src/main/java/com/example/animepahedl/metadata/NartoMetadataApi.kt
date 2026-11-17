@@ -12,7 +12,7 @@ import org.jsoup.nodes.Element
 internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
     private val injectedGet: (suspend (String) -> MetadataResponse)? = null) : SiteMetadataApi {
     override val site = MetadataSite.NARTO
-    private val http = MetadataHttp(setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com"), cookieHeader)
+    private val http = MetadataHttp(setOf("narto-drama.com", "www.narto-drama.com", "edge.narto-drama.com"), cookieHeader, allowEmbeddedWidgets = true)
     private val origin = "https://edge.narto-drama.com/".toHttpUrl()
     private suspend fun get(url: String) = injectedGet?.invoke(url) ?: http.get(url)
 
@@ -72,25 +72,34 @@ internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
         val (slug, _) = dramaRoute(target, SiteDownloadProvider.NARTO)
         val detailUrl = target.newBuilder().encodedPath("/detail/watch/$slug").build().toString()
         val response = get(detailUrl)
+        validateRoute(detailUrl, response.url)
         val doc = response.document()
         val base = record(doc)
         var episodes = episodeAnchors(doc)
+        val embedded = episodeItems(response.text)
         var payloads = base.payloads + pageFacts(doc, response.url)
-        if (episodes.isNotEmpty()) {
-            // The page carries all episode metadata in one document; never request every episode.
-            val hydration = runCatching { get(episodes.first().url) }
-            hydration.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
-            hydration.getOrNull()?.let { page ->
-                val raw = episodeItems(page.text)
-                if (raw.isNotEmpty()) episodes = raw.map { episodeRecord(it, page.url) }
+        if (episodes.isNotEmpty() || embedded.isNotEmpty()) {
+            // Hydrate once, retaining anchor inventory if the player exposes only a subset.
+            // Reuse embedded metadata when the detail response already includes it.
+            val hydration = runCatching {
+                val page = if (embedded.isNotEmpty()) response else {
+                    val first = episodes.first().url
+                    get(first).also { validateRoute(first, it.url) }
+                }
+                val raw = if (page === response) embedded else episodeItems(page.text)
+                val hydrated = raw.mapNotNull { episodeRecord(it, page.url) }.associateBy { it.number }
+                episodes = (episodes.map { hydrated[it.number] ?: it } + hydrated.values)
+                    .distinctBy { it.number }.sortedBy { it.number.toInt() }
                 payloads = payloads + metadataFromDocument(page.document()).payloads +
                     raw.takeIf { it.isNotEmpty() }?.let { listOf(metadataPayload("episodeItemsRaw", page.url, com.google.gson.JsonArray().apply { it.forEach(::add) })) }.orEmpty() +
                     publicPlayerConfiguration(page.text, page.url)
             }
+            hydration.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
             if (hydration.isFailure) payloads += metadataPayload("metadataAvailability", detailUrl, JsonObject().apply {
                 addProperty("episodeHydration", "unavailable; episode anchors retained")
             })
         }
+        if (episodes.isEmpty()) throw java.io.IOException("Narto returned no available episodes. Try again.")
         val counts = base.attributes.toMutableMap()
         if (episodes.any { "is_playable" in it.attributes }) counts["playableEpisodeCount"] = episodes.count { it.attributes["is_playable"] == "true" }.toString()
         return MetadataDetails(base.copy(attributes = counts), episodes, related(doc), payloads = payloads)
@@ -101,11 +110,13 @@ internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
         val (_, number) = dramaRoute(target, SiteDownloadProvider.NARTO)
         require(number != null) { "Select a Narto episode URL." }
         val response = get(target.toString())
+        validateRoute(target.toString(), response.url)
         val doc = response.document()
         val raw = episodeItems(response.text).firstOrNull { it.dramaInt("route_episode_number") == number }
             ?: throw java.io.IOException("Narto did not expose metadata for this episode.")
         val generic = metadataFromDocument(doc)
         val item = episodeRecord(raw, response.url)
+            ?: throw java.io.IOException("Narto returned metadata for a different episode.")
         return item.copy(description = doc.selectFirst(".desktop-intro,.info-intro,.movie-desc")?.text()?.takeIf(String::isNotBlank) ?: generic.description,
             releaseDate = generic.releaseDate, durationSeconds = generic.durationSeconds,
             images = (item.images + generic.images).distinctBy { it.role to it.url },
@@ -255,7 +266,14 @@ internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
     private fun jsonCard(value: JsonElement, base: String): MetadataRecord? {
         val data = value.takeIf { it.isJsonObject }?.asJsonObject ?: return null
         val title = data.dramaString("title")
-        val url = base.toHttpUrl().resolve(data.dramaString("url", "watch_url"))?.toString()?.let(::safePage) ?: return null
+        val route = data.dramaString("url", "watch_url").takeIf(String::isNotBlank) ?: return null
+        val url = base.toHttpUrl().resolve(route)?.toString()?.let(::safePage) ?: return null
+        val target = url.toHttpUrl()
+        // Provider search also returns import links. Preserve them as public metadata;
+        // never follow them implicitly while browsing (imports can mutate site state).
+        val importLink = target.encodedPath == "/search/import" &&
+            !target.queryParameter("provider").isNullOrBlank() && !target.queryParameter("book_id").isNullOrBlank()
+        if (!importLink && runCatching { dramaRoute(target, SiteDownloadProvider.NARTO) }.isFailure) return null
         if (title.isBlank()) return null
         val poster = data.dramaString("poster_url").takeIf(String::isNotBlank)?.let { base.toHttpUrl().resolve(it)?.toString() }
         val language = data.dramaString("language_code").takeIf(String::isNotBlank)
@@ -346,19 +364,37 @@ internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
         return items.values.toList()
     }
 
-    private fun episodeAnchors(doc: Document) = doc.select("a.episode-item[href]").mapNotNull { a ->
-        val url = a.absUrl("href").let(::safePage) ?: return@mapNotNull null
-        val number = runCatching { dramaRoute(url.toHttpUrl(), SiteDownloadProvider.NARTO).second }.getOrNull() ?: return@mapNotNull null
-        MetadataEpisode(url, number.toString(), a.attr("title").ifBlank { a.text() }, url)
-    }.distinctBy { it.number }
+    private fun validateRoute(requested: String, effective: String) {
+        require(dramaRoute(http.checked(requested), SiteDownloadProvider.NARTO) ==
+            dramaRoute(http.checked(effective), SiteDownloadProvider.NARTO)) {
+            "Narto redirected to a different title or episode. Retry the original link."
+        }
+    }
+
+    private fun episodeAnchors(doc: Document): List<MetadataEpisode> {
+        val slug = dramaRoute(http.checked(doc.location()), SiteDownloadProvider.NARTO).first
+        return doc.select("a.episode-item[href]").mapNotNull { a ->
+            val url = a.absUrl("href").let(::safePage) ?: return@mapNotNull null
+            val route = runCatching { dramaRoute(url.toHttpUrl(), SiteDownloadProvider.NARTO) }.getOrNull() ?: return@mapNotNull null
+            val number = route.second ?: return@mapNotNull null
+            if (route.first != slug) return@mapNotNull null
+            MetadataEpisode(url, number.toString(), a.attr("title").ifBlank { a.text() }, url)
+        }.distinctBy { it.number }.sortedBy { it.number.toInt() }
+    }
 
     private fun episodeItems(html: String): List<JsonObject> = dramaJsonAfter(html, Regex("const\\s+episodeItemsRaw\\s*=\\s*"))
         ?.takeIf { it.isJsonArray }?.asJsonArray?.filter { it.isJsonObject }?.map { it.asJsonObject }.orEmpty()
 
-    private fun episodeRecord(raw: JsonObject, base: String): MetadataEpisode {
-        val number = raw.dramaString("route_episode_number", "number")
-        fun absolute(value: String) = value.takeIf(String::isNotBlank)?.let { base.toHttpUrl().resolve(it)?.toString() }
-        val url = absolute(raw.dramaString("watch_url")) ?: base
+    private fun episodeRecord(raw: JsonObject, base: String): MetadataEpisode? {
+        val number = raw.dramaInt("route_episode_number", "number").takeIf { it in 1..10000 } ?: return null
+        val origin = http.checked(base)
+        val slug = dramaRoute(origin, SiteDownloadProvider.NARTO).first
+        fun absolute(value: String) = value.takeIf(String::isNotBlank)?.let { origin.resolve(it) }
+            ?.takeIf { it.scheme == "https" && it.username.isEmpty() && it.password.isEmpty() }?.toString()
+        val declared = raw.dramaString("watch_url")
+        val url = if (declared.isBlank()) origin.newBuilder().encodedPath("/detail/watch/$slug/$number").fragment(null).build().toString()
+            else absolute(declared)?.let(::safePage) ?: return null
+        if (runCatching { dramaRoute(url.toHttpUrl(), SiteDownloadProvider.NARTO) }.getOrNull() != (slug to number)) return null
         val tracks = raw.dramaArray("multi_subtitles").mapNotNull { value ->
             val o = value.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
             val trackUrl = absolute(o.dramaString("subtitle_url")) ?: return@mapNotNull null
@@ -371,7 +407,7 @@ internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
                 tracks += MetadataSubtitle(trackUrl, "Subtitle", raw.dramaString("selected_subtitle_language").takeIf(String::isNotBlank), attributes = mapOf("sourceField" to field))
             }
         }
-        return MetadataEpisode(raw.dramaString("id").ifBlank { url }, number, raw.dramaString("title"), url,
+        return MetadataEpisode(raw.dramaString("id").ifBlank { url }, number.toString(), raw.dramaString("title"), url,
             images = absolute(raw.dramaString("thumb_url"))?.let { listOf(MetadataImage(it, "episode-snapshot")) }.orEmpty(), subtitles = tracks,
             attributes = raw.entrySet().filter { it.value.isJsonPrimitive }.associate { it.key to it.value.asString },
             payloads = listOf(metadataPayload("episode", base, raw)))
@@ -395,7 +431,7 @@ internal class NartoMetadataApi(cookieHeader: ((String) -> String)? = null,
             "genres" to group { it.encodedPath.startsWith("/genre/") },
             "tags" to group { it.encodedPath.startsWith("/tag/") },
             "categories" to group { it.queryParameter("category") != null },
-            "providers" to group { it.encodedPath.startsWith("/provider/") || it.queryParameter("provider") != null },
+            "providers" to group { it.encodedPath.startsWith("/provider/") || it.queryParameter("provider") != null || it.queryParameter("tab-provider") != null },
             "types" to group { it.queryParameter("type") != null },
         )
         groups["languages"] = doc.select("link[rel=alternate][hreflang][href]").map { link ->

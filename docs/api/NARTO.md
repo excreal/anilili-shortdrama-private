@@ -2,6 +2,40 @@
 
 Implementation: `NartoMetadataApi`, using the shared `SiteMetadataApi` contract. This is independent of displayed UI cards and does not change existing media resolution.
 
+## Adapter recheck (2026-11-17)
+
+Fresh HTTPS captures of the English homepage, search for “My X-Ray Vision is Too OP”,
+GoroGoro provider sections, the [series detail](https://edge.narto-drama.com/detail/watch/my-x-ray-vision-is-too-op?lang=en-US),
+and episode 26 were replayed through the production Kotlin parsers. The detail exposes
+59 episode anchors despite embedding Turnstile markup; the episode page exposes 59
+`episodeItemsRaw` entries. Optional widgets must not invalidate that public inventory.
+Metadata HTTP still rejects explicit challenge responses, challenge-page titles, and
+unsuccessful HTTP responses; Narto reports temporary unavailability rather than asking
+for a session.
+
+- Inventory accepts the three supported Narto hosts, rejects foreign shows/hosts and
+  insecure links, and parses the document once for title, poster, description and anchors.
+- Metadata hydration uses at most one additional episode request, merges by episode
+  number without dropping anchors, and reuses player metadata already in the detail page.
+  Missing watch URLs are reconstructed for the matching episode; redirects and declared
+  URLs for a different title/episode are rejected. Cancellation remains cancellable.
+- Subtitle tracks from `multi_subtitles`, `subtitle_url`, and `direct_subtitle_url` now
+  reach playback/download resolution, with HTTPS validation and URL deduplication.
+- Provider cards without a valid watch or provider-import route are omitted; import links remain metadata only. Homepage provider taxonomy
+  includes `tab-provider` links. Existing provider pagination tests remain in the suite.
+- `scripts/test_narto_playback.py --episode-url 'https://edge.narto-drama.com/detail/watch/my-x-ray-vision-is-too-op/26?lang=en-US' --episode 26 --seconds 4 --timeout 50`
+  downloaded a 4.422-second primary HLS sample: H.264 540×960 video and AAC stereo
+  audio. The direct fallback returned HTTP 403, so the working browser source remains
+  first. This is a server-side media check, not an Android device download test.
+
+`NartoAdapterTest` covers the failure modes with synthetic fixtures. For a fresh live
+capture replay, save the five public GET responses outside the checkout as
+`narto-live-home.html`, `narto-live-search.json` (HTML search response),
+`narto-live-provider.json`, `narto-live-detail.html`, and `narto-live-episode.html`.
+Run `NARTO_CAPTURE_DIR=/path/to/captures ./gradlew :app:testDebugUnitTest --tests '*NartoLiveCaptureTest' --rerun-tasks`.
+The opt-in test is skipped when the directory variable is absent. Raw pages and signed
+media URLs are intentionally not committed.
+
 ## Live audit evidence
 
 Inspected 2026-11-08 UTC, using successful bounded HTTPS GETs to these primary sources:
@@ -65,4 +99,4 @@ Actual subtitle descriptors expose `language_code`, `label`, `subtitle_url`, `is
 - Media/subtitle proxy URLs are source-advertised expiring locators. They are retained for future callers but should be refreshed before playback. API payloads must not be treated as permanent media manifests.
 - This audit inspected the public web responses and client behavior, not every one of the hundreds of thousands of titles. Field completeness applies to exposed schemas discovered here; provider-specific unknown fields remain available as raw JSON.
 
-No build, device interaction or test suite was run by this site subagent. Root performs integrated compilation and validation.
+The original 2026-11-08 audit did not include a build or device test. See the 2026-11-17 recheck above and `docs/implementation-progress.md` for current integrated verification.

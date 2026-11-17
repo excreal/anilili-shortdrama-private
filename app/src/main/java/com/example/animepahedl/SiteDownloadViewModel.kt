@@ -168,7 +168,7 @@ internal class SiteDownloadViewModel(application: Application) : AndroidViewMode
                 }
             } catch (e: CancellationException) { throw e
             } catch (_: Exception) {
-                if (generation == current) error = "Could not inspect this link. Check the URL and connection, or import a session for this site."
+                if (generation == current) error = "Could not load this series. Check the link and connection, then retry."
             } finally { if (generation == current) inspecting = false }
         }
     }
